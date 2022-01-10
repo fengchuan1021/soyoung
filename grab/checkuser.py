@@ -2,7 +2,8 @@ import sys
 import django
 import os
 import pathlib
-
+import js2py
+from django_redis import get_redis_connection
 if __name__ == "__main__":
     basedir = str(pathlib.Path(__file__).resolve().parent.parent)
     os.chdir(basedir)
@@ -20,68 +21,344 @@ from django.core.cache import cache
 from dotmap import DotMap
 from bs4 import BeautifulSoup
 def setusercollect_cnt(uid,cnt):
-    if cache.get(f'u_collectcnt:{uid}'):
+    try:
+        if cache.get(f'u_collectcnt:{uid}'):
+            return 0
+        model=Reviewer.objects.get(ReviewerID=uid)
+        model.ReviewerLikes=int(cnt)
+        model.save()
+        cache.set(f'u_collectcnt:{uid}',1,timeout=3600*24)
+        return 1
+    except Exception as e:
+        pass
+def checkproduct(pid):
+    now = str(datetime.datetime.now())
+    if cache.get(f'product:{pid}'):
         return 0
-    model=Reviewer.objects.get(ReviewerID=uid)
-    model.ReviewerLikes=int(cnt)
-    model.save()
-    cache.set(f'u_collectcnt:{uid}',1,timeout=3600*24)
-    return 1
+    cache.set(f'product::{pid}',1,timeout=3600*24*5)
+    model=Product.objects.filter(ProductID=pid).first()
+    if not model:
+        model=Product()
+        model.ProductID=pid
+    model.PCrawlDate=now
+    try:
+        url=f"https://www.soyoung.com/cp{pid}"
+        session=createsession()
+        ret=session.get(url)
+        b=js2py.eval_js(re.findall(r'(window\.__NUXT__.*?)</script>',ret.text)[0])
+        model.ProductName=b.fetch["data-v-16523c62:0"].productData.title
+        model.HospitalID=b.fetch["data-v-16523c62:0"].productData.product.hospital.id
+        model.HospitalName=b.fetch["data-v-16523c62:0"].productData.product.hospital.name_cn
+        model.HospitalRating=b.fetch["data-v-16523c62:0"].productData.product.hospital.satisfy
+        model.DoctorNum=tmp[0] if (tmp:=re.findall(r'(\d+)',b.fetch["data-v-16523c62:0"].productData.product.hospital.doctor_cnt)) else 0
+        model.HospitalAddress=b.fetch["data-v-16523c62:0"].productData.product.hospital.address
+        model.ProductOPrice=b.fetch["data-v-16523c62:0"].productData.product.price_origin
+        model.ProductPrice=b.fetch["data-v-16523c62:0"].productData.product.price_online
+        model.ProductSale=b.fetch["data-v-16523c62:0"].productData.product.show_order_cnt
+        #退单率
+        model.ReturnRatio=0
+        for item in fetch["data-v-16523c62:0"].productData.product.content.describe_other:
+            if item.name=='额外费用':
+                model.ProductAPrice=sum([float(i[0]) for tmp in item.list if (i:=re.findall(r'([0-9\.]+)',tmp.price))])
+        model.save()
+        checkproductdiary(pid)
+    except Exception as e:
+        print(e)
+def checkproductdiary(pid):
+    now = str(datetime.datetime.now())
+    if cache.get(f'productdiary:{pid}'):
+        return 0
+    cache.set(f'productdiary::{pid}',1,timeout=3600*24*5)
+    model=Product.objects.filter(ProductID=pid).first()
+    if not model:
+        model=Product()
+        model.ProductID=pid
+    model.PCrawlDate=now
+    try:
+        url=f"https://www.soyoung.com/yuehui/ProductShortComment?pid={pid}&range=10&index=0&tag_id=0&tag_type=all"
+        session=createsession()
+        ret=session.get(url).json()
+        obj=DotMap(ret)
+        model.PReviewNum=obj.total
+        for item in obj.base_review_tag_list:
+            if item.name=='消费后日记':
+                model.PPostReviewNum=int(item.cnt) if item.cnt else 0
+            elif item.name=='差评':
+                model.PNegReviewNum=int(item.cnt) if item.cnt else 0
+            elif item.name=='追评':
+                model.PAddReviewNum = int(item.cnt) if item.cnt else 0
+            elif item.name=='有图':
+                model.PImageReviewNum = int(item.cnt) if item.cnt else 0
+            elif item.name == '有视频':
+                model.PVideoReviewNum = int(item.cnt) if item.cnt else 0
+        model.save()
+        con = get_redis_connection('default')
+
+        for item in obj.list:
+            try:
+                con.rpush('diary_list', item.post_id)
+                con.rpush('user_list',item.post_user.uid)
+            except Exception as e:
+                print(e)
+                pass
+    except Exception as e:
+        print(e)
+def checkdiaryreply(pid):
+    if cache.get(f'diaryreply:{pid}'):
+        return 0
+    cache.set(f'diaryreply:{pid}',1,3600*24*5)
+    try:
+        url=f'https://www.soyoung.com/post/getreplylist?post_id={pid}&page=1&limit=15'
+        sesson=createsession()
+        ret=sesson.get(url).json()
+        obj=DotMap(ret)
+        flag=0
+        model=Diary.objects.get(ReviewID=pid)
+        con = get_redis_connection('default')
+        for item in obj.responseData.list:
+            if int(item.certified_type)==2 and not flag:
+                flag=1
+                model.HospitalResponseText = item.content_new  # 机构回复
+            elif  int(item.certified_type)!=2 :
+                con.rpush('user_list',item.uid)
+        model.save()
+
+    except Exception as e:
+        print(127,e)
 def checkdiary(pid):
     now = str(datetime.datetime.now())
-    if cache.get(f'p:{pid}'):
+    if cache.get(f'diary:{pid}'):
         return 0
-    cache.set(f'p:{pid}',1,timeout=3600*24*5)
+    cache.set(f'diary:{pid}',1,timeout=3600*24*5)
     model=Diary.objects.filter(ReviewID=pid).first()
     if not model:
         model=Diary()
-        model.ReviewerID_id=pid
+        model.ReviewID=pid
     session=createsession()
     try:
     #if 1:
-        ret=session.get(f'https://www.soyoung.com/p{pid}')
         print(f'https://www.soyoung.com/p{pid}')
-        soup=BeautifulSoup(ret.text)
-        try:
-            model.ReviewContent=re.findall(r'html:"(.*?)",',ret.text)[0]
-        except Exception as e:
-            model.ReviewContent=''
-        model.ReviewReplyNum=re.findall(r'评论：(\d+)',ret.text)[0]
-        model.ReviewFollowNum=re.findall(r'收藏：(\d+)',ret.text)[0]
-        model.ReviewLikeNum = re.findall(r'点赞：(\d+)', ret.text)[0]
+        ret=session.get(f'https://www.soyoung.com/p{pid}')
+        b = js2py.eval_js(re.findall(r'(window\.__NUXT__.*?)</script>', ret.text)[0])
+        model.ReviewContent=b.fetch["data-v-56804bd0:0"].res.content[0].raw_text
+
+        model.ReviewReplyNum=b.fetch["data-v-56804bd0:0"].stat.reply_cnt
+        model.ReviewFollowNum=b.fetch["data-v-56804bd0:0"].stat.collection_cnt
+        model.ReviewLikeNum = b.fetch["data-v-56804bd0:0"].stat.real_favorite_cnt
         model.RCrawlDate=now
-        model.IsCustom1Review=True if re.findall(r'通过新氧消费',ret.text) else False
-        model.IsCustom2Review= True if re.findall(r'上传消费凭证', ret.text) else False
-        model.IsEOReview=True if len(re.findall(r'体验官日记', ret.text))>=2 else False
-        model.IsVideoReview =True if re.findall(r'video=\{',ret.text) else False
-        model.IsImageReview=True if re.findall(r'swiper-container',ret.text) else False
+        print(111111111111111111)
+        print(b.fetch["data-v-56804bd0:0"].extension)
+        if 'extension' in b.fetch["data-v-56804bd0:0"] and  b.fetch["data-v-56804bd0:0"].extension and b.fetch["data-v-56804bd0:0"].extension.display_label_list:
+            for item in b.fetch["data-v-56804bd0:0"].extension.display_label_list:
+                if item['name']=='通过新氧消费':
+                    model.IsCustom1Review=True
+                elif item['name']=='上传消费凭证':
+                    model.IsCustom2Review = True
+                elif item['name'] == '体验官日记':
+                    model.IsEOReview = True
+                elif item['name']=='案例':
+                    model.IsCase=True
+        print('debug1222222222222222222')
+        model.IsVideoReview =False if 'video' not in b.fetch["data-v-56804bd0:0"].media else True
+        model.IsImageReview=False if 'content_image_list' not in b.fetch["data-v-56804bd0:0"].media else True
         #model.ReviewDate=re.findall(r'create_date="(.*?)"',ret.text)[0]
-        model.ReviewDate=re.findall(r'(\d+-\d+-\d+ \d+:\d+:\d+)',soup.select('p.post-create-date')[0].text)[0]
-        model.ReviewViews=tmp[0] if (tmp:=re.findall(r'view_cnt="(\d+)"',ret.text)) else 0
-        model.ReviewERating=tmp[0] if (tmp:=re.findall(r'机构环境：([0-9\.]+)',ret.text)) else 0
-        model.ReviewSRating = tmp[0] if (tmp := re.findall(r'服务态度：([0-9\.]+)',ret.text)) else 0
-        model.ReviewTRating=tmp[0] if (tmp := re.findall(r'项目效果：([0-9\.]+)',ret.text)) else 0
-        model.ReviewPRating=tmp[0] if (tmp := re.findall(r'医生专业：([0-9\.]+)',ret.text)) else 0
-        model.ReviewImageNum=len(tmp) if (tmp:=re.findall(r'class="blur-img"',ret.text)) else 0
+        model.ReviewDate=b.fetch["data-v-56804bd0:0"].base.create_date
+        model.ReviewViews=b.fetch["data-v-56804bd0:0"].stat.view_cnt
+        print('333333333333')
+        print(b.fetch["data-v-56804bd0:0"].star_score)
+        if 'star_score' in b.fetch["data-v-56804bd0:0"] and b.fetch["data-v-56804bd0:0"].star_score:
+            model.ReviewERating=b.fetch["data-v-56804bd0:0"].star_score.environment
+            model.ReviewSRating =b.fetch["data-v-56804bd0:0"].star_score.service
+            model.ReviewTRating=b.fetch["data-v-56804bd0:0"].star_score.effect
+            model.ReviewPRating=b.fetch["data-v-56804bd0:0"].star_score.specialty
+            model.ReviewRating = b.fetch["data-v-56804bd0:0"].star_score.satisfy  # 日记评分
 
-        model.ReviewImage='#'.join(map(lambda x: x['src'],soup.select('div.blur-img img')))
-        model.ReviewVideo=tmp[0] if (tmp:=re.findall(r'video=\{url:"(.*?)"',ret.text)) else ''
+        model.ReviewTextLen=b.fetch["data-v-56804bd0:0"].stat.text_cnt
+        model.ReviewImageNum=b.fetch["data-v-56804bd0:0"].stat.image_cnt
 
-        model.HospitalResponseText = ''  # 机构回复
-        model.ReviewAddText=''
-        model.FollowReviewNum=0
-        model.ReviewerID_id=re.findall(r'uid=(\d+)',ret.text)[0]
+        model.ReviewImage='' if 'content_image_list' not in b.fetch["data-v-56804bd0:0"].media else '#'.join([ item['url'] for item in b.fetch["data-v-56804bd0:0"].media.content_image_list])
+        model.ReviewVideo='' if 'video' not in b.fetch["data-v-56804bd0:0"].media else b.fetch["data-v-56804bd0:0"].media.video.url
+        print(99999999)
+
+        model.ReviewAddText='' if ('append' not in b.fetch["data-v-56804bd0:0"] or not b.fetch["data-v-56804bd0:0"].append) else '#'.join([item.content[0].raw_text for item in b.fetch["data-v-56804bd0:0"].append])
+        print(8888888)
+        model.FollowReviewNum=b.fetch["data-v-56804bd0:0"].res.collect_diary_list.diary_cnt if 'collect_diary_list' in  b.fetch["data-v-56804bd0:0"].res else 0
+        model.ReviewerID_id=b.fetch["data-v-56804bd0:0"].post_user.uid
+        con = get_redis_connection('default')
+        print('debug111111111111111111')
+        if 'collect_diary_list' in b.fetch["data-v-56804bd0:0"].res:
+            model.CollectionID=b.fetch["data-v-56804bd0:0"].res.collect_diary_list.collection_id
+            for item in b.fetch["data-v-56804bd0:0"].res.collect_diary_list.list:
+                try:
+                    con.rpush('diary_list',item.post_id)
+                except Exception as e:
+                    print(e)
+                    pass
         model.ReviewID=pid
+        if 'doctor_card' in b.fetch["data-v-56804bd0:0"].attribute:
+            model.DoctorID_id=b.fetch["data-v-56804bd0:0"].attribute.doctor_card[0].doctor_id
+            model.DoctorName=b.fetch["data-v-56804bd0:0"].attribute.doctor_card[0].name_cn
+            con.rpush('doctor_list',model.DoctorID_id)
+        if 'hospital_card' in b.fetch["data-v-56804bd0:0"].attribute:
+            model.HospitalID_id=b.fetch["data-v-56804bd0:0"].attribute.hospital_card[0].hospital_id
+            model.HospitalName=b.fetch["data-v-56804bd0:0"].attribute.hospital_card[0].name_cn
+            con.rpush('hospital_list',model.HospitalID_id)
+        print('444444')
+        if 'product_card' in b.fetch["data-v-56804bd0:0"].attribute:
+            model.ProductID_id=b.fetch["data-v-56804bd0:0"].attribute.product_card[0].product.pid
+            model.ProductName=b.fetch["data-v-56804bd0:0"].attribute.product_card[0].product.title
+            con.rpush('product_list',model.ProductID_id)
+        model.IsHQReview=True if b.fetch["data-v-56804bd0:0"].res.audit.quality_type and int(b.fetch["data-v-56804bd0:0"].res.audit.quality_type)==2 else False #优质评价
+        print('22211111111')
         try:
-            setusercollect_cnt(model.ReviewerID_id,re.findall(r'favourite_collect_cnt=(\d+)',ret.text)[0])
+            setusercollect_cnt(model.ReviewerID_id,b.fetch["data-v-56804bd0:0"].post_user.favourite_collect_cnt)
         except Exception as e:
             print(e)
             pass
+
+        try:
+            for item in b.fetch["data-v-56804bd0:0"].recommend:
+                if 'type' in item and item['type']==35:
+                    con.rpush('diary_list',item['data']['post_id'])
+                    con.rpush('user_list',item['data']['uid'])
+        except Exception as e:
+            print(e)
+            print(b.fetch["data-v-56804bd0:0"].recommend)
+            pass
         model.save()
+        try:
+            checkdiaryreply(pid)
+        except Exception as e:
+            print(e)
     except Exception as e:
-        cache.set(f'p:{pid}',1, timeout=360)
         print(e)
-import js2py
+
+def checkhospital(id):
+    now = str(datetime.datetime.now())
+    if cache.get(f'hospital:{pid}'):
+        return 0
+    cache.set(f'hospital:{pid}',1,timeout=3600*24*5)
+    model=Hospital.objects.filter(HospitalID=pid).first()
+    if not model:
+        model=Hospital()
+        model.HospitalID=pid
+    try:
+        ret = session.get(f'https://m.soyoung.com/y/hospital/{id}')
+        soup = BeautifulSoup(ret.text)
+        base=DotMap(json.loads(soup.select_one('#globalData', features="html.parser").string))
+
+        url=f'https://m.soyoung.com/hospital/HospitalMoreInfo?hospital_id={id}&json=1'
+        session = createsession()
+        ret=session.get(url).json()
+        obj=DotMap(ret)
+        model.CrawlTime=now
+        model.HospitalName=base.hospital_info.name_cn
+        model.HospitalRating=base.hospital_info.satisfy
+        model.HospitalURating=base.hospital_info.post_effect
+        model.HospitalTRating=base.hospital_info.post_environment
+        model.HospitalSRating=base.hospital_info.post_service
+        model.HospitalAddress=base.hospital_info.address
+        model.HospitalCity=base.hospital_info.district2_name
+        model.Reputation='#'.join([item.award_title for item in base.hospital_info.award])
+        model.ReputNum=0 if 'award' not in base.hospital_info else len(base.hospital_info.award)
+        model.RecodeYear=base.hospital_info.record_date
+        model.DoctorNum=obj.data.hospital_info.doctor_cnt
+        model.HospitalFollower=base.hospital_info.fansCnt
+        model.HospitalType=int(obj.data.hospital_info.institution_type)
+
+        model.ReviewNum=0 #评价数量
+        model.APatentNum=0 #专利数量
+        model.MGCNum=0#机构动态数量
+        model.save()
+        try:
+            checkhospitalproject(id)
+        except Exception as e:
+            print(e)
+        try:
+            checkhospitaldiary(id)
+        except Exception as e:
+            print(e)
+    except Exception as e:
+        print(e)
+
+    pass
+def checkhospitalproject(id):
+    now = str(datetime.datetime.now())
+    if cache.get(f'hostpital_project:{id}'):
+        return 0
+    cache.set(f'hostpital_project:{id}',1,timeout=3600*24*5)
+    try:
+        page=0
+        con = get_redis_connection('default')
+        while 1:
+            page+=1
+            try:
+                url=f'https://m.soyoung.com/hospital/product?hospital_id={id}&page={page}&limit=20&menu1_id=&uid=&is_home=0'
+                session=createsession()
+                time.sleep(5)
+                ret=session.get(url).json()
+                obj=DotMap(ret)
+                model=Hospital.get(HospitalID=id)
+                model.ProjectNum=obj.data.total
+                model.save(update_fields=['ProjectNum'])
+                for item in obj.data.list:
+                    con.rpush('product_list',item.pid)
+                if not obj.data.has_more:
+                    break
+
+            except Exception as e:
+                print(e)
+                break
+    except Exception as e:
+        print(e)
+
+def checkhospitaldiary(id):
+    now = str(datetime.datetime.now())
+    if cache.get(f'hostpital_diary:{id}'):
+        return 0
+    cache.set(f'hostpital_diary:{id}',1,timeout=3600*24*5)
+    try:
+        page=-1
+        con = get_redis_connection('default')
+        while 1:
+            page+=1
+            try:
+                url=f'https://m.soyoung.com/hospital/postComment?index={page}&range=10&review_tag_id=&tag_id=0&tag_type=all&hospital_id={id}&menu_id=&official_post=0&uid=&is_home=0&menu1_id='
+                session=createsession()
+                time.sleep(5)
+                ret=session.get(url).json()
+                obj=DotMap(ret)
+                model=Hospital.get(HospitalID=id)
+                model.HReviewNum=obj.data.total
+
+                model.HHQReviewNum=0
+                for item in obj.data.base_review_tag_list:
+                    if item.name=='差评':
+                        model.HNegReviewNum=item.cnt
+                    elif item.name=='追评':
+                        model.HAddReviewNum=item.cnt
+                    elif item.name == '有图':
+                        model.HImageReviewNum=item.cnt
+                    elif item.name == '有视频':
+                        model.HVideoReviewNum=item.cnt
+                    elif item.name == '消费后日记':
+                        model.HPostReviewNum=item.cnt
+                model.save(update_fields=['HReviewNum','HNegReviewNum','HAddReviewNum','HImageReviewNum','HVideoReviewNum','HPostReviewNum'])
+                try:
+                   for item in obj.data.list:
+                       con.rpush('diary_list',item.post_id)
+                       con.rpush('user_list',item.uid)
+                except Exception as e:
+                    print(e)
+                if not obj.data.has_more:
+                    break
+
+
+            except Exception as e:
+                print(e)
+                break
+    except Exception as e:
+        print(e)
 def checkdoctorxiangmu(did):
     if int(did)==0:
         return 0
@@ -107,23 +384,65 @@ def checkdoctorxiangmu(did):
                 model.save()
             except Exception as e:
                 pass
-
+            break
     except Exception as e:
         print(e)
-    doctor_id
+def checkdoctordiary(did):
+    if int(did==0):
+        return 0
+    if cache.get(f'dictor_diary:{did}'):
+        return 0
+    cache.set(f'dictor_diary:{did}',1,timeout=3600*24*5)
+    model=Doctor.get(DoctorID=did)
+    con = get_redis_connection('default')
+    try:
+        page=0
+        url=f'https://m.soyoung.com/doctor/InfoV4TabDiary?index={page}&range=10&review_tag_id=&tag_id=0&tag_type=all&doctor_id={did}'
+        session=createsession()
+        ret=session.get(url).json()
+        obj=DotMap(ret)
+        model.DReviewNum = obj.total
+        for item in obj.base_review_tag_list:
+            if item.name=='追评':
+                model.DAddNum =item.cnt
+            elif item.name=='差评':
+                model.DNegReviewNum =item.cnt
+            elif item.name=='有图':
+                model.DImageReviewNum =item.cnt
+            elif item.name=='有视频':
+                model.DVideoReviewNum =item.cnt
+            elif item.name=='消费后日记':
+                model.DPostReviewNum =item.cnt
+        model.save()
+        for item in obj.list:
+            try:
+                con.rpush('diary_list',item.post_id)
+                con.rpush('user_list',item.uid)
+            except Exception as e:
+                print(e)
+    except Exception as e:
+        print(e)
+
+
+
+
+
+
+
+
 def checkdoctor(did):
     if int(did)==0:
         return 0
-    if cache.get(f'd:{did}'):
+    if cache.get(f'doctor:{did}'):
         return 0
-    cache.set(f'd:{did}',1,timeout=3600*24*5)
+    cache.set(f'doctor:{did}',1,timeout=3600*24*5)
     now = str(datetime.datetime.now())
     try:
         url=f'https://www.soyoung.com/doctor/{did}/'
         session=createsession()
         ret=session.get(url)
         #session.post('https://m.soyoung.com/doctor/infov3tabproduct')
-        b=js2py.eval_js(re.findall(r'(window\.__NUXT__.*?);</script>',ret.text)[0])
+        b=js2py.eval_js(re.findall(r'(window\.__NUXT__.*?)</script>',ret.text)[0])
 
         #soup=BeautifulSoup(ret.text)
         model=Doctor.objects.filter(DoctorID=did).first()
@@ -164,21 +483,16 @@ def checkdoctor(did):
                     model.TextService=True
                     model.TextPrice=tmp.price_str
 
-
-        model.DReviewNum=
-        model.DAddNum=
-        model.DNegReviewNum=
-        model.DImageReviewNum=
-        model.DVideoReviewNum=
-        model.DPostReviewNum=
-
         model.DoctorConsultation=b.fetch["data-v-625304e2:0"].info.statistics.patient_cnt
+        model.save()
+        checkdoctordiary(did)
+        checkdoctorxiangmu(did)
 
 
 
     except Exception as e:
         print(e)
-    pass
+
 def checkuser(uid):
     if int(uid)==0:
         return 0
@@ -186,6 +500,7 @@ def checkuser(uid):
         return 0
     cache.set(f'u:{uid}',1,timeout=3600*24*7)
     page = 0
+    con = get_redis_connection('default')
     while 1:
         page += 1
         time.sleep(5 if settings.DEBUG else 5)
@@ -199,7 +514,7 @@ def checkuser(uid):
             ret = session.get(url).json()
             if 'data' in ret and 'redirect' in ret['data']:
                 if (tmp:=re.findall(r'd(\d+)',ret['data']['redirect'])):
-                    checkdoctor(tmp[0])
+                    con.rpush('doctor_list',tmp[0])
                 return 0
             model=Reviewer.objects.filter(ReviewerID=ret['data']['info']['uid']).first()
             if not model:
@@ -219,13 +534,21 @@ def checkuser(uid):
             if len(obj.data.person_post.responseData.post_list.list)==0:
                 break
             for item in obj.data.person_post.responseData.post_list.list:
-                checkdiary(item.post_id)
-                time.sleep(2)
+                con.rpush('diary_list',item.post_id)
+
         except Exception as e:
             print(e)
             break
+    try:
 
+        checkuserfans(uid)
+    except Exception as e:
+        print(e)
+    try:
+        checkuserflow(uid)
 
+    except Exception as e:
+        print(e)
 def checkuserfans(uid):
     if int(uid)==0:
         return 0
@@ -233,6 +556,7 @@ def checkuserfans(uid):
         return 0
     cache.set(f'ufans:{uid}',1,timeout=3600*24*7)
     page = 0
+    con = get_redis_connection('default')
     while 1:
         page += 1
         time.sleep(5 if settings.DEBUG else 5)
@@ -246,6 +570,8 @@ def checkuserfans(uid):
 
             ret = session.get(url).json()
             if 'data' in ret and 'redirect' in ret['data']:
+                if (tmp:=re.findall(r'd(\d+)',ret['data']['redirect'])):
+                    con.rpush('doctor_list',tmp[0])
                 return 0
             obj=DotMap(ret)
 
@@ -253,8 +579,7 @@ def checkuserfans(uid):
             if len(obj.data.person_fans.responseData.user_info)==0:
                 return 0
             for item in obj.data.person_fans.responseData.user_info:
-                checkuser(item.uid)
-                time.sleep(2)
+                con.rpush('user_list',item.uid)
         except Exception as e:
             print(e)
             break
@@ -266,6 +591,7 @@ def checkuserflow(uid):
         return 0
     cache.set(f'uflow:{uid}',1,timeout=3600*24*7)
     page = 0
+    con = get_redis_connection('default')
     while 1:
         page += 1
         time.sleep(5 if settings.DEBUG else 5)
@@ -279,6 +605,8 @@ def checkuserflow(uid):
 
             ret = session.get(url).json()
             if 'data' in ret and 'redirect' in ret['data']:
+                if (tmp:=re.findall(r'd(\d+)',ret['data']['redirect'])):
+                    con.rpush('doctor_list',tmp[0])
                 return 0
             obj=DotMap(ret)
 
@@ -286,11 +614,10 @@ def checkuserflow(uid):
             if len(obj.data.person_fans.responseData.user_info)==0:
                 return 0
             for item in obj.data.person_fans.responseData.user_info:
-                checkuser(item.uid)
-                time.sleep(2)
+                con.rpush('user_list',item.uid)
         except Exception as e:
             print(e)
             break
 
 
-checkuser(148250195)
+checkuser(18868976)

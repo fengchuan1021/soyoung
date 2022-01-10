@@ -10,7 +10,7 @@ class Hospital(models.Model):
     ServiceNum=models.IntegerField(default=0)
     DoctorNum=models.IntegerField(default=0)
     HospitalAddress=models.CharField(max_length=512,default='')
-    HospitalType=models.CharField(max_length=128,default='')
+    HospitalType=models.IntegerField(default=0)
     ReviewNum=models.IntegerField(default=0)
     DoctorNum=models.IntegerField(default=0)
     HospitalCity=models.CharField(max_length=32,default='')
@@ -32,12 +32,18 @@ class Hospital(models.Model):
     HImageReviewNum=models.IntegerField(default=0)
     HVideoReviewNum=models.IntegerField(default=0)
     HPostReviewNum=models.IntegerField(default=0)
+
 class Product(models.Model):
     ProductID=models.BigIntegerField(primary_key=True)
     PCrawlDate=models.DateTimeField(blank=True,null=True)
     ProductName=models.CharField(max_length=128)
 
     HospitalID=models.ForeignKey(to=Hospital,db_column='HospitalID',on_delete=models.DO_NOTHING)
+    HospitalName = models.CharField(max_length=64, default='')
+    HospitalRating=models.FloatField(default=0)
+    DoctorNum=models.IntegerField(default=0)
+    HospitalAddress=models.CharField(max_length=64,default='')
+
     ProductOPrice=models.FloatField(default=0)
     ProductPrice=models.FloatField(default=0)
     ProductSale=models.IntegerField(default=0)
@@ -69,10 +75,10 @@ class Reviewer(models.Model):
 class Diary(models.Model):
     ReviewID=models.BigIntegerField(primary_key=True)
     RCrawlDate = models.DateTimeField(blank=True, null=True)
-    IsCustom1Review=models.BooleanField(blank=True,null=True)
-    IsCustom2Review = models.BooleanField(blank=True, null=True)
+    IsCustom1Review=models.BooleanField(blank=True,null=True,default=False)
+    IsCustom2Review = models.BooleanField(blank=True, null=True,default=False)
     IsHQReview = models.BooleanField(blank=True, null=True)
-    IsEOReview= models.BooleanField(blank=True, null=True)
+    IsEOReview= models.BooleanField(blank=True, null=True,default=False)
     IsImageReview= models.BooleanField(blank=True, null=True)
     IsVideoReview = models.BooleanField(blank=True, null=True)
     ReviewDate=models.DateTimeField()
@@ -91,9 +97,17 @@ class Diary(models.Model):
     ReviewerID=models.ForeignKey(to=Reviewer,db_column='ReviewerID',on_delete=models.DO_NOTHING,blank=True,null=True)
     ReviewImage=models.TextField(default='')
     ReviewVideo=models.TextField(default='')
+    IsCase=models.BooleanField(default=False,blank=True,null=True)
     FollowReviewNum=models.IntegerField(default=0)
-    ParentId=models.ForeignKey(to='Diary',on_delete=models.DO_NOTHING,db_column='ParentId',blank=True,null=True)
+    CollectionID=models.BigIntegerField(blank=True,null=True)
     ReviewAddText=models.CharField(default='',max_length=1024)
+    ProductID=models.ForeignKey(to=Product,db_column='ProductID',on_delete=models.DO_NOTHING,blank=True,null=True)
+    ProductName=models.CharField(default='',max_length=64)
+    DoctorID=models.ForeignKey(to='Doctor',db_column='DoctorID',on_delete=models.DO_NOTHING,blank=True,null=True)
+    DoctorName=models.CharField(default='',max_length=128)
+
+    HospitalID=models.ForeignKey(to='Hospital',db_column='HospitalID',on_delete=models.DO_NOTHING,blank=True,null=True)
+    HospitalName=models.CharField(default='',max_length=128)
 
 class Doctor(models.Model):
     DoctorID=models.BigIntegerField(primary_key=True)
