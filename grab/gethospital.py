@@ -26,11 +26,13 @@ def check():
                 print(e)
     with open(os.path.join(settings.BASE_DIR,'run',pidfile),'w') as f:
         f.write(str(os.getpid()))
+from django_redis import get_redis_connection
 def grab():
     check()
     session=createsession()
     page=0
     now=str(datetime.datetime.now())
+    con = get_redis_connection('default')
     while 1:
         time.sleep(1)
         page += 1
@@ -41,15 +43,8 @@ def grab():
             print(ret)
             if 'result' in ret and 'view' in ret['result'] and 'dphospital' in ret['result']['view']:
                 for obj in ret['result']['view']['dphospital']:
-                    h=Hospital.objects.filter(HospitalID=obj['hospital_id']).first()
-                    if not h:
-                        h=Hospital()
-                        h.HospitalID=obj['hospital_id']
-                    h.CrawlTime=now
-                    h.HospitalAddress=obj['address']
-                    h.HospitalName=obj['name_cn']
-                    h.DoctorNum=obj['doctor_cnt']
-                    h.save()
+                    con.rpush('hospital_list',obj['hospital_id'])
+
 
 
                 if not  ret['result']['view']['has_more']:

@@ -20,7 +20,7 @@ from django.conf import settings
 from django.core.cache import cache
 from dotmap import DotMap
 from bs4 import BeautifulSoup
-
+import sys
 def beforecheck(name):
     pidfile = f'{name}.pid'
     if os.path.exists(os.path.join(settings.BASE_DIR, 'run', pidfile)):
@@ -35,18 +35,51 @@ def beforecheck(name):
     with open(os.path.join(settings.BASE_DIR, 'run', pidfile), 'w') as f:
         f.write(str(os.getpid()))
 
-def task_checkuser():
-    con = get_redis_connection('default')
+from grab.checkuser import checkproduct,checkproductdiary,checkdiary,checkdiaryreply,checkhospital,checkdoctor,checkuser
 
-from grab.checkuser import checkdiary
 def task_checkdiary():
     con = get_redis_connection('default')
     beforecheck('task_checkdiary')
     while 1:
         did=int(con.lpop('diary_list'))
         checkdiary(did)
-        time.sleep(5)
+        time.sleep(15)
         print('aftersleep')
-#task_checkdiary()
-from grab.checkuser import checkproduct,checkproductdiary,checkdiary,checkdiaryreply
-checkdiary(31096061)
+
+
+def task_checkuser():
+    con = get_redis_connection('default')
+    beforecheck(sys._getframe().f_code.co_name)
+    while 1:
+        did=int(con.lpop('user_list'))
+        checkuser(did)
+        time.sleep(15)
+        print('aftersleep')
+
+def task_checkproduct():
+    con = get_redis_connection('default')
+    beforecheck(sys._getframe().f_code.co_name)
+    while 1:
+        did=int(con.lpop('product_list'))
+        checkproduct(did)
+        time.sleep(15)
+        print('aftersleep')
+
+def task_checkhospital():
+    con = get_redis_connection('default')
+    beforecheck(sys._getframe().f_code.co_name)
+    while 1:
+        did=int(con.lpop('hospital_list'))
+        checkhospital(did)
+        time.sleep(15)
+        print('aftersleep')
+from grab.checkuser import checkuserflow,checkuserfans
+def task_checkdoctor():
+    con = get_redis_connection('default')
+    beforecheck(sys._getframe().f_code.co_name)
+    while 1:
+        did=int(con.lpop('doctor_list'))
+        checkdoctor(did)
+        time.sleep(15)
+        print('aftersleep')
+checkuserfans('66528788')

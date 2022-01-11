@@ -20,6 +20,15 @@ from django.conf import settings
 from django.core.cache import cache
 from dotmap import DotMap
 from bs4 import BeautifulSoup
+
+def gettext(data):
+    try:
+        data.encode("utf-8")
+    except UnicodeEncodeError as e:
+        if e.reason == 'surrogates not allowed':
+            data = data.encode('utf-8', "backslashreplace").decode('utf-8')
+    return data
+
 def setusercollect_cnt(uid,cnt):
     try:
         if cache.get(f'u_collectcnt:{uid}'):
@@ -110,17 +119,17 @@ def checkproductdiary(pid):
 
         for item in obj.list:
             try:
-                con.rpush('diary_list', item.post_id)
-                con.rpush('user_list',item.post_user.uid)
+                con.rpush('diary_list', item['post_id'])
+                con.rpush('user_list',item['post_user']['uid'])
             except Exception as e:
                 print(e)
                 pass
     except Exception as e:
         print(e)
 def checkdiaryreply(pid):
-    if 0 and cache.get(f'diaryreply:{pid}'):
+    if 1 and cache.get(f'diaryreply:{pid}'):
         return 0
-    cache.set(f'diaryreply:{pid}',1,3600*24*5)
+    cache.set(f'diaryreply:{pid}',1,timeout=3600*24*5)
     try:
         url=f'https://www.soyoung.com/post/getreplylist?post_id={pid}&page=1&limit=15'
         sesson=createsession()
@@ -130,18 +139,23 @@ def checkdiaryreply(pid):
         model=Diary.objects.get(ReviewID=pid)
         con = get_redis_connection('default')
         for item in obj.responseData.list:
-            if int(item.certified_type)==2 and not flag:
+            if int(item['certified_type'])==2 and not flag:
                 flag=1
-                model.HospitalResponseText = item.content_new  # 机构回复
-            elif  int(item.certified_type)!=2 :
-                con.rpush('user_list',item.uid)
+                model.HospitalResponseText = item['content_new']  # 机构回复
+            elif  int(item['certified_type'])!=2 :
+                con.rpush('user_list',item['uid'])
         model.save()
-
+        try:
+            con = get_redis_connection('default')
+            for item in obj.responseData.list:
+                con.rpush('user_list',item['uid'])
+        except Exception as e:
+            print(e)
     except Exception as e:
         print(127,e)
 def checkdiary(pid):
     now = str(datetime.datetime.now())
-    if 0 and cache.get(f'diary:{pid}'):
+    if 1 and cache.get(f'diary:{pid}'):
         return 0
     cache.set(f'diary:{pid}',1,timeout=3600*24*5)
     model=Diary.objects.filter(ReviewID=pid).first()
@@ -151,11 +165,12 @@ def checkdiary(pid):
     session=createsession()
     try:
     #if 1:
-        print(f'https://www.soyoung.com/p{pid}')
+
         ret=session.get(f'https://www.soyoung.com/p{pid}')
         b = js2py.eval_js(re.findall(r'(window\.__NUXT__.*?)</script>', ret.text)[0])
+        print(f'https://www.soyoung.com/p{pid}')
         model.ReviewContent=b.fetch["data-v-56804bd0:0"].res.content[0].raw_text
-
+        print('why')
         model.ReviewReplyNum=b.fetch["data-v-56804bd0:0"].stat.reply_cnt
         model.ReviewFollowNum=b.fetch["data-v-56804bd0:0"].stat.collection_cnt
         model.ReviewLikeNum = b.fetch["data-v-56804bd0:0"].stat.real_favorite_cnt
@@ -204,7 +219,7 @@ def checkdiary(pid):
             model.CollectionID=b.fetch["data-v-56804bd0:0"].res.collect_diary_list.collection_id
             for item in b.fetch["data-v-56804bd0:0"].res.collect_diary_list.list:
                 try:
-                    con.rpush('diary_list',item.post_id)
+                    con.rpush('diary_list',item['post_id'])
                 except Exception as e:
                     print(e)
                     pass
@@ -239,7 +254,9 @@ def checkdiary(pid):
             print(e)
             print(b.fetch["data-v-56804bd0:0"].recommend)
             pass
+        print('beforesave')
         model.save()
+        print('aftersave')
         try:
             checkdiaryreply(pid)
         except Exception as e:
@@ -247,9 +264,9 @@ def checkdiary(pid):
     except Exception as e:
         print(e)
 
-def checkhospital(id):
+def checkhospital(pid):
     now = str(datetime.datetime.now())
-    if cache.get(f'hospital:{pid}'):
+    if 1 and cache.get(f'hospital:{pid}'):
         return 0
     cache.set(f'hospital:{pid}',1,timeout=3600*24*5)
     model=Hospital.objects.filter(HospitalID=pid).first()
@@ -257,12 +274,13 @@ def checkhospital(id):
         model=Hospital()
         model.HospitalID=pid
     try:
-        ret = session.get(f'https://m.soyoung.com/y/hospital/{id}')
-        soup = BeautifulSoup(ret.text)
+        session = createsession()
+        ret = session.get(f'https://m.soyoung.com/y/hospital/{pid}')
+        soup = BeautifulSoup(ret.text,features="html.parser")
         base=DotMap(json.loads(soup.select_one('#globalData', features="html.parser").string))
 
-        url=f'https://m.soyoung.com/hospital/HospitalMoreInfo?hospital_id={id}&json=1'
-        session = createsession()
+        url=f'https://m.soyoung.com/hospital/HospitalMoreInfo?hospital_id={pid}&json=1'
+
         ret=session.get(url).json()
         obj=DotMap(ret)
         model.CrawlTime=now
@@ -312,7 +330,7 @@ def checkhospitalproject(id):
                 time.sleep(5)
                 ret=session.get(url).json()
                 obj=DotMap(ret)
-                model=Hospital.get(HospitalID=id)
+                model=Hospital.objects.get(HospitalID=id)
                 model.ProjectNum=obj.data.total
                 model.save(update_fields=['ProjectNum'])
                 for item in obj.data.list:
@@ -342,7 +360,7 @@ def checkhospitaldiary(id):
                 time.sleep(5)
                 ret=session.get(url).json()
                 obj=DotMap(ret)
-                model=Hospital.get(HospitalID=id)
+                model=Hospital.objects.get(HospitalID=id)
                 model.HReviewNum=obj.data.total
 
                 model.HHQReviewNum=0
@@ -360,8 +378,8 @@ def checkhospitaldiary(id):
                 model.save(update_fields=['HReviewNum','HNegReviewNum','HAddReviewNum','HImageReviewNum','HVideoReviewNum','HPostReviewNum'])
                 try:
                    for item in obj.data.list:
-                       con.rpush('diary_list',item.post_id)
-                       con.rpush('user_list',item.uid)
+                       con.rpush('diary_list',item['post_id'])
+                       con.rpush('user_list',item['uid'])
                 except Exception as e:
                     print(e)
                 if not obj.data.has_more:
@@ -378,7 +396,7 @@ def checkdoctorxiangmu(did):
         return 0
     if cache.get(f'dp:{did}'):
         return 0
-    cache.set(f'dp:{did}')
+    cache.set(f'dp:{did}',1,timeout=3600*24*5)
     now = str(datetime.datetime.now())
     try:
         url='https://m.soyoung.com/doctor/infov3tabproduct'
@@ -393,7 +411,7 @@ def checkdoctorxiangmu(did):
                 model = Doctor()
                 model.DoctorID = did
             model.DoctorProjectNum=obj.total
-            mdoel.DoctorSales=obj.order_cnt
+            model.DoctorSales=obj.order_cnt
             try:
                 model.save()
             except Exception as e:
@@ -407,7 +425,7 @@ def checkdoctordiary(did):
     if cache.get(f'dictor_diary:{did}'):
         return 0
     cache.set(f'dictor_diary:{did}',1,timeout=3600*24*5)
-    model=Doctor.get(DoctorID=did)
+    model=Doctor.objects.get(DoctorID=did)
     con = get_redis_connection('default')
     try:
         page=0
@@ -430,8 +448,8 @@ def checkdoctordiary(did):
         model.save()
         for item in obj.list:
             try:
-                con.rpush('diary_list',item.post_id)
-                con.rpush('user_list',item.uid)
+                con.rpush('diary_list',item['post_id'])
+                con.rpush('user_list',item['uid'])
             except Exception as e:
                 print(e)
     except Exception as e:
@@ -447,7 +465,7 @@ def checkdoctordiary(did):
 def checkdoctor(did):
     if int(did)==0:
         return 0
-    if cache.get(f'doctor:{did}'):
+    if 1 and cache.get(f'doctor:{did}'):
         return 0
     cache.set(f'doctor:{did}',1,timeout=3600*24*5)
     now = str(datetime.datetime.now())
@@ -473,11 +491,12 @@ def checkdoctor(did):
             model.HospitalName=b.fetch["data-v-625304e2:0"].info.doctor.main_hospital[0].hospital_name
 
         except Exception as e:
+            print(e)
             pass
         model.DoctorGender=b.fetch["data-v-625304e2:0"].info.doctor.gender
         model.DoctorRating=b.fetch["data-v-625304e2:0"].info.doctor_card.five_stars_score.satisfy
         model.DGCNum=b.fetch["data-v-625304e2:0"].info.statistics.official_cnt
-        model.ExpertArea='#'.join([item.name for item in b.fetch["data-v-625304e2:0"].info.doctor.extend.expert_all])
+        model.ExpertArea='#'.join([item['name'] for item in b.fetch["data-v-625304e2:0"].info.doctor.extend.expert_all])
         model.DoctorBio=b.fetch["data-v-625304e2:0"].info.doctor.intro
         model.DoctorSRating=b.fetch["data-v-625304e2:0"].info.doctor_card.five_stars_score.service
         model.DoctorPRating=b.fetch["data-v-625304e2:0"].info.doctor_card.five_stars_score.specialty
@@ -486,16 +505,16 @@ def checkdoctor(did):
         model.DoctorFollower=b.fetch["data-v-625304e2:0"].info.statistics.fans_cnt
         model.DoctorPosrate=b.fetch["data-v-625304e2:0"].info.koubeiAndDiary.avg_info.high_percent
         for tmp in b.fetch["data-v-625304e2:0"].info.face_consultation_card.list:
-            if tmp.allow_yn:
-                if tmp.type==2:
+            if 'allow_yn' in tmp and tmp['allow_yn']:
+                if tmp['type']==2:
                     model.VideoService=True
-                    model.VideoPrice=tmp.price_str
-                elif tmp.type==3:
+                    model.VideoPrice=tmp['price_str']
+                elif tmp['type']==3:
                     model.VoiceService=True
-                    model.VideoPrice=tmp.price_str
-                elif tmp.type==1:
+                    model.VideoPrice=tmp['price_str']
+                elif tmp['type']==1:
                     model.TextService=True
-                    model.TextPrice=tmp.price_str
+                    model.TextPrice=tmp['price_str']
 
         model.DoctorConsultation=b.fetch["data-v-625304e2:0"].info.statistics.patient_cnt
         model.save()
@@ -517,7 +536,7 @@ def checkuser(uid):
     con = get_redis_connection('default')
     while 1:
         page += 1
-        time.sleep(5 if settings.DEBUG else 5)
+        time.sleep(20 if settings.DEBUG else 5)
         session = createsession()
         try:
         #if 1:
@@ -548,7 +567,7 @@ def checkuser(uid):
             if len(obj.data.person_post.responseData.post_list.list)==0:
                 break
             for item in obj.data.person_post.responseData.post_list.list:
-                con.rpush('diary_list',item.post_id)
+                con.rpush('diary_list',item['post_id'])
 
         except Exception as e:
             print(e)
@@ -573,7 +592,7 @@ def checkuserfans(uid):
     con = get_redis_connection('default')
     while 1:
         page += 1
-        time.sleep(5 if settings.DEBUG else 5)
+        time.sleep(25 if settings.DEBUG else 5)
         session = createsession()
         try:
         #if 1:
@@ -590,10 +609,11 @@ def checkuserfans(uid):
             obj=DotMap(ret)
 
             #print('len:',obj.data.person_post.responseData.post_list.list)
-            if len(obj.data.person_fans.responseData.user_info)==0:
+            if not obj.data.person_fans.responseData.user_info or len(obj.data.person_fans.responseData.user_info)==0:
                 return 0
             for item in obj.data.person_fans.responseData.user_info:
-                con.rpush('user_list',item.uid)
+                print('add',item['uid'])
+                con.rpush('user_list',item['uid'])
         except Exception as e:
             print(e)
             break
@@ -601,14 +621,14 @@ def checkuserfans(uid):
 def checkuserflow(uid):
     if int(uid)==0:
         return 0
-    if cache.get(f'uflow:{uid}'):
+    if 1 and cache.get(f'uflow:{uid}'):
         return 0
     cache.set(f'uflow:{uid}',1,timeout=3600*24*7)
     page = 0
     con = get_redis_connection('default')
     while 1:
         page += 1
-        time.sleep(5 if settings.DEBUG else 5)
+        time.sleep(25 if settings.DEBUG else 5)
         session = createsession()
         try:
         #if 1:
@@ -625,13 +645,11 @@ def checkuserflow(uid):
             obj=DotMap(ret)
 
             #print('len:',obj.data.person_post.responseData.post_list.list)
-            if len(obj.data.person_fans.responseData.user_info)==0:
+            if not obj.data.person_fans.responseData.user_info or len(obj.data.person_fans.responseData.user_info)==0:
                 return 0
             for item in obj.data.person_fans.responseData.user_info:
-                con.rpush('user_list',item.uid)
+                con.rpush('user_list',item['uid'])
         except Exception as e:
             print(e)
             break
 
-
-checkuser(18868976)

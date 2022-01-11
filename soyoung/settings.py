@@ -138,9 +138,13 @@ STATICFILES_DIRS=[
 DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
 
 CRONJOBS = [
-    ('0 0 */1 * *', 'grab.getdoctorl.grab'),
-    ('0 2 */1 * *', 'grab.grabhostpitaldetail.grab'),
-
+    ('*/10 * * * *', 'grab.cron_task.task_checkdiary'),
+('*/10 * * * *', 'grab.cron_task.task_checkuser'),
+('*/10 * * * *', 'grab.cron_task.task_checkproduct'),
+('*/10 * * * *', 'grab.cron_task.task_checkhospital'),
+('*/10 * * * *', 'grab.cron_task.task_checkdoctor'),
+('*/20 * * * *', 'grab.getdiaryindexfeed.grab'),
+('*/20 * * * *', 'grab.gethospital.grab'),
 ]
 CACHES = {
     "default": {
