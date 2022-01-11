@@ -46,5 +46,7 @@ def task_checkdiary():
         did=int(con.lpop('diary_list'))
         checkdiary(did)
         time.sleep(5)
-
-task_checkdiary()
+        print('aftersleep')
+#task_checkdiary()
+from grab.checkuser import checkproduct,checkproductdiary,checkdiary,checkdiaryreply
+checkdiary(31096061)

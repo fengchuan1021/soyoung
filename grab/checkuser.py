@@ -33,7 +33,7 @@ def setusercollect_cnt(uid,cnt):
         pass
 def checkproduct(pid):
     now = str(datetime.datetime.now())
-    if cache.get(f'product:{pid}'):
+    if 1 and cache.get(f'product:{pid}'):
         return 0
     cache.set(f'product::{pid}',1,timeout=3600*24*5)
     model=Product.objects.filter(ProductID=pid).first()
@@ -43,30 +43,42 @@ def checkproduct(pid):
     model.PCrawlDate=now
     try:
         url=f"https://www.soyoung.com/cp{pid}"
+        print(url)
         session=createsession()
+        useragent='Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/92.0.4515.159 Safari/537.36'
+        session.headers.update({'user-agent': useragent})
         ret=session.get(url)
+        print(ret.url)
         b=js2py.eval_js(re.findall(r'(window\.__NUXT__.*?)</script>',ret.text)[0])
-        model.ProductName=b.fetch["data-v-16523c62:0"].productData.title
-        model.HospitalID=b.fetch["data-v-16523c62:0"].productData.product.hospital.id
-        model.HospitalName=b.fetch["data-v-16523c62:0"].productData.product.hospital.name_cn
-        model.HospitalRating=b.fetch["data-v-16523c62:0"].productData.product.hospital.satisfy
-        model.DoctorNum=tmp[0] if (tmp:=re.findall(r'(\d+)',b.fetch["data-v-16523c62:0"].productData.product.hospital.doctor_cnt)) else 0
-        model.HospitalAddress=b.fetch["data-v-16523c62:0"].productData.product.hospital.address
-        model.ProductOPrice=b.fetch["data-v-16523c62:0"].productData.product.price_origin
-        model.ProductPrice=b.fetch["data-v-16523c62:0"].productData.product.price_online
-        model.ProductSale=b.fetch["data-v-16523c62:0"].productData.product.show_order_cnt
+        soup=BeautifulSoup(ret.text,features="html.parser")
+        #key=soup.select('.main')[0].attrs['data-fetch-key']
+        key=soup.find(lambda x: x.has_attr("data-fetch-key") and not (x.has_attr('class') and 'search-header' in x['class'])).attrs['data-fetch-key']
+        print(key)
+        print(b.fetch)
+        #exit(0)
+        model.ProductName=b.fetch[key].productData.title
+        model.HospitalID_id=b.fetch[key].productData.product.hospital.id
+        model.HospitalName=b.fetch[key].productData.product.hospital.name_cn
+        model.HospitalRating=b.fetch[key].productData.product.hospital.satisfy
+        model.DoctorNum=tmp[0] if (tmp:=re.findall(r'(\d+)',b.fetch[key].productData.product.hospital.doctor_cnt)) else 0
+        model.HospitalAddress=b.fetch[key].productData.product.hospital.address
+        model.ProductOPrice=b.fetch[key].productData.product.price_origin
+        model.ProductPrice=b.fetch[key].productData.product.price_online
+        model.ProductSale=b.fetch[key].productData.product.show_order_cnt
         #退单率
         model.ReturnRatio=0
-        for item in fetch["data-v-16523c62:0"].productData.product.content.describe_other:
-            if item.name=='额外费用':
-                model.ProductAPrice=sum([float(i[0]) for tmp in item.list if (i:=re.findall(r'([0-9\.]+)',tmp.price))])
+        if b.fetch[key].productData.product.content.describe_other:
+            for item in b.fetch[key].productData.product.content.describe_other:
+                if item['name']=='额外费用':
+                    model.ProductAPrice=sum([float(i[0]) for tmp in item['list'] if (i:=re.findall(r'([0-9\.]+)',tmp['price']))])
         model.save()
         checkproductdiary(pid)
     except Exception as e:
         print(e)
 def checkproductdiary(pid):
     now = str(datetime.datetime.now())
-    if cache.get(f'productdiary:{pid}'):
+    print(11)
+    if 1 and cache.get(f'productdiary:{pid}'):
         return 0
     cache.set(f'productdiary::{pid}',1,timeout=3600*24*5)
     model=Product.objects.filter(ProductID=pid).first()
@@ -79,6 +91,7 @@ def checkproductdiary(pid):
         session=createsession()
         ret=session.get(url).json()
         obj=DotMap(ret)
+        print(22)
         model.PReviewNum=obj.total
         for item in obj.base_review_tag_list:
             if item.name=='消费后日记':
@@ -91,6 +104,7 @@ def checkproductdiary(pid):
                 model.PImageReviewNum = int(item.cnt) if item.cnt else 0
             elif item.name == '有视频':
                 model.PVideoReviewNum = int(item.cnt) if item.cnt else 0
+        print(222222)
         model.save()
         con = get_redis_connection('default')
 
@@ -104,7 +118,7 @@ def checkproductdiary(pid):
     except Exception as e:
         print(e)
 def checkdiaryreply(pid):
-    if cache.get(f'diaryreply:{pid}'):
+    if 0 and cache.get(f'diaryreply:{pid}'):
         return 0
     cache.set(f'diaryreply:{pid}',1,3600*24*5)
     try:
@@ -127,7 +141,7 @@ def checkdiaryreply(pid):
         print(127,e)
 def checkdiary(pid):
     now = str(datetime.datetime.now())
-    if cache.get(f'diary:{pid}'):
+    if 0 and cache.get(f'diary:{pid}'):
         return 0
     cache.set(f'diary:{pid}',1,timeout=3600*24*5)
     model=Diary.objects.filter(ReviewID=pid).first()
