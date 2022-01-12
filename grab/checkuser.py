@@ -168,8 +168,9 @@ def checkdiary(pid):
     #if 1:
 
         ret=session.get(f'https://www.soyoung.com/p{pid}')
-        b = js2py.eval_js(re.findall(r'(window\.__NUXT__.*?)</script>', ret.text)[0])
         print(f'https://www.soyoung.com/p{pid}')
+        b = js2py.eval_js(re.findall(r'(window\.__NUXT__.*?)</script>', ret.text)[0])
+
         model.ReviewContent=b.fetch["data-v-56804bd0:0"].res.content[0].raw_text
         print('why')
         model.ReviewReplyNum=b.fetch["data-v-56804bd0:0"].stat.reply_cnt
@@ -189,8 +190,11 @@ def checkdiary(pid):
                 elif item['name']=='案例':
                     model.IsCase=True
         print('debug1222222222222222222')
-        model.IsVideoReview =False if 'video' not in b.fetch["data-v-56804bd0:0"].media else True
-        model.IsImageReview=False if 'content_image_list' not in b.fetch["data-v-56804bd0:0"].media else True
+        try:
+            model.IsVideoReview =False if 'video' not in b.fetch["data-v-56804bd0:0"].media else True
+            model.IsImageReview=False if 'content_image_list' not in b.fetch["data-v-56804bd0:0"].media else True
+        except Exception as e:
+            pass
         #model.ReviewDate=re.findall(r'create_date="(.*?)"',ret.text)[0]
         model.ReviewDate=b.fetch["data-v-56804bd0:0"].base.create_date
         model.ReviewViews=b.fetch["data-v-56804bd0:0"].stat.view_cnt
@@ -205,9 +209,11 @@ def checkdiary(pid):
 
         model.ReviewTextLen=b.fetch["data-v-56804bd0:0"].stat.text_cnt
         model.ReviewImageNum=b.fetch["data-v-56804bd0:0"].stat.image_cnt
-
-        model.ReviewImage='' if 'content_image_list' not in b.fetch["data-v-56804bd0:0"].media else '#'.join([ item['url'] for item in b.fetch["data-v-56804bd0:0"].media.content_image_list])
-        model.ReviewVideo='' if 'video' not in b.fetch["data-v-56804bd0:0"].media else b.fetch["data-v-56804bd0:0"].media.video.url
+        try:
+            model.ReviewImage='' if 'content_image_list' not in b.fetch["data-v-56804bd0:0"].media else '#'.join([ item['url'] for item in b.fetch["data-v-56804bd0:0"].media.content_image_list])
+            model.ReviewVideo='' if 'video' not in b.fetch["data-v-56804bd0:0"].media else b.fetch["data-v-56804bd0:0"].media.video.url
+        except Exception as e:
+            pass
         print(99999999)
 
         model.ReviewAddText='' if ('append' not in b.fetch["data-v-56804bd0:0"] or not b.fetch["data-v-56804bd0:0"].append) else '#'.join([item.content[0].raw_text for item in b.fetch["data-v-56804bd0:0"].append])
@@ -216,14 +222,18 @@ def checkdiary(pid):
         model.ReviewerID_id=b.fetch["data-v-56804bd0:0"].post_user.uid
         con = get_redis_connection('default')
         print('debug111111111111111111')
-        if 'collect_diary_list' in b.fetch["data-v-56804bd0:0"].res:
-            model.CollectionID=b.fetch["data-v-56804bd0:0"].res.collect_diary_list.collection_id
-            for item in b.fetch["data-v-56804bd0:0"].res.collect_diary_list.list:
-                try:
-                    con.sadd('diary_list',item['post_id'])
-                except Exception as e:
-                    print(e)
-                    pass
+        try:
+            if 'collect_diary_list' in b.fetch["data-v-56804bd0:0"].res:
+                model.CollectionID=b.fetch["data-v-56804bd0:0"].res.collect_diary_list.collection_id
+
+                for item in b.fetch["data-v-56804bd0:0"].res.collect_diary_list.list:
+                    try:
+                        con.sadd('diary_list',item['post_id'])
+                    except Exception as e:
+                        print(e)
+                        pass
+        except Exception as e:
+            pass
         model.ReviewID=pid
         if 'doctor_card' in b.fetch["data-v-56804bd0:0"].attribute:
             model.DoctorID_id=b.fetch["data-v-56804bd0:0"].attribute.doctor_card[0].doctor_id
