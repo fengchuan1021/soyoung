@@ -84,6 +84,7 @@ def checkproduct(pid):
         checkproductdiary(pid)
     except Exception as e:
         print(e)
+    return 1
 def checkproductdiary(pid):
     now = str(datetime.datetime.now())
     print(11)
@@ -119,8 +120,8 @@ def checkproductdiary(pid):
 
         for item in obj.list:
             try:
-                con.rpush('diary_list', item['post_id'])
-                con.rpush('user_list',item['post_user']['uid'])
+                con.sadd('diary_list', item['post_id'])
+                con.sadd('user_list',item['post_user']['uid'])
             except Exception as e:
                 print(e)
                 pass
@@ -143,12 +144,12 @@ def checkdiaryreply(pid):
                 flag=1
                 model.HospitalResponseText = item['content_new']  # 机构回复
             elif  int(item['certified_type'])!=2 :
-                con.rpush('user_list',item['uid'])
+                con.sadd('user_list',item['uid'])
         model.save()
         try:
             con = get_redis_connection('default')
             for item in obj.responseData.list:
-                con.rpush('user_list',item['uid'])
+                con.sadd('user_list',item['uid'])
         except Exception as e:
             print(e)
     except Exception as e:
@@ -219,7 +220,7 @@ def checkdiary(pid):
             model.CollectionID=b.fetch["data-v-56804bd0:0"].res.collect_diary_list.collection_id
             for item in b.fetch["data-v-56804bd0:0"].res.collect_diary_list.list:
                 try:
-                    con.rpush('diary_list',item['post_id'])
+                    con.sadd('diary_list',item['post_id'])
                 except Exception as e:
                     print(e)
                     pass
@@ -227,16 +228,16 @@ def checkdiary(pid):
         if 'doctor_card' in b.fetch["data-v-56804bd0:0"].attribute:
             model.DoctorID_id=b.fetch["data-v-56804bd0:0"].attribute.doctor_card[0].doctor_id
             model.DoctorName=b.fetch["data-v-56804bd0:0"].attribute.doctor_card[0].name_cn
-            con.rpush('doctor_list',model.DoctorID_id)
+            con.sadd('doctor_list',model.DoctorID_id)
         if 'hospital_card' in b.fetch["data-v-56804bd0:0"].attribute:
             model.HospitalID_id=b.fetch["data-v-56804bd0:0"].attribute.hospital_card[0].hospital_id
             model.HospitalName=b.fetch["data-v-56804bd0:0"].attribute.hospital_card[0].name_cn
-            con.rpush('hospital_list',model.HospitalID_id)
+            con.sadd('hospital_list',model.HospitalID_id)
         print('444444')
         if 'product_card' in b.fetch["data-v-56804bd0:0"].attribute:
             model.ProductID_id=b.fetch["data-v-56804bd0:0"].attribute.product_card[0].product.pid
             model.ProductName=b.fetch["data-v-56804bd0:0"].attribute.product_card[0].product.title
-            con.rpush('product_list',model.ProductID_id)
+            con.sadd('product_list',model.ProductID_id)
         model.IsHQReview=True if b.fetch["data-v-56804bd0:0"].res.audit.quality_type and int(b.fetch["data-v-56804bd0:0"].res.audit.quality_type)==2 else False #优质评价
         print('22211111111')
         try:
@@ -248,8 +249,8 @@ def checkdiary(pid):
         try:
             for item in b.fetch["data-v-56804bd0:0"].recommend:
                 if 'type' in item and item['type']==35:
-                    con.rpush('diary_list',item['data']['post_id'])
-                    con.rpush('user_list',item['data']['uid'])
+                    con.sadd('diary_list',item['data']['post_id'])
+                    con.sadd('user_list',item['data']['uid'])
         except Exception as e:
             print(e)
             print(b.fetch["data-v-56804bd0:0"].recommend)
@@ -334,7 +335,7 @@ def checkhospitalproject(id):
                 model.ProjectNum=obj.data.total
                 model.save(update_fields=['ProjectNum'])
                 for item in obj.data.list:
-                    con.rpush('product_list',item.pid)
+                    con.sadd('product_list',item.pid)
                 if not obj.data.has_more:
                     break
 
@@ -378,8 +379,8 @@ def checkhospitaldiary(id):
                 model.save(update_fields=['HReviewNum','HNegReviewNum','HAddReviewNum','HImageReviewNum','HVideoReviewNum','HPostReviewNum'])
                 try:
                    for item in obj.data.list:
-                       con.rpush('diary_list',item['post_id'])
-                       con.rpush('user_list',item['uid'])
+                       con.sadd('diary_list',item['post_id'])
+                       con.sadd('user_list',item['uid'])
                 except Exception as e:
                     print(e)
                 if not obj.data.has_more:
@@ -448,8 +449,8 @@ def checkdoctordiary(did):
         model.save()
         for item in obj.list:
             try:
-                con.rpush('diary_list',item['post_id'])
-                con.rpush('user_list',item['uid'])
+                con.sadd('diary_list',item['post_id'])
+                con.sadd('user_list',item['uid'])
             except Exception as e:
                 print(e)
     except Exception as e:
@@ -536,7 +537,7 @@ def checkuser(uid):
     con = get_redis_connection('default')
     while 1:
         page += 1
-        time.sleep(20 if settings.DEBUG else 5)
+        time.sleep(5)
         session = createsession()
         try:
         #if 1:
@@ -547,7 +548,7 @@ def checkuser(uid):
             ret = session.get(url).json()
             if 'data' in ret and 'redirect' in ret['data']:
                 if (tmp:=re.findall(r'd(\d+)',ret['data']['redirect'])):
-                    con.rpush('doctor_list',tmp[0])
+                    con.sadd('doctor_list',tmp[0])
                 return 0
             model=Reviewer.objects.filter(ReviewerID=ret['data']['info']['uid']).first()
             if not model:
@@ -567,7 +568,7 @@ def checkuser(uid):
             if len(obj.data.person_post.responseData.post_list.list)==0:
                 break
             for item in obj.data.person_post.responseData.post_list.list:
-                con.rpush('diary_list',item['post_id'])
+                con.sadd('diary_list',item['post_id'])
 
         except Exception as e:
             print(e)
@@ -582,6 +583,7 @@ def checkuser(uid):
 
     except Exception as e:
         print(e)
+    return 1
 def checkuserfans(uid):
     if int(uid)==0:
         return 0
@@ -592,7 +594,7 @@ def checkuserfans(uid):
     con = get_redis_connection('default')
     while 1:
         page += 1
-        time.sleep(25 if settings.DEBUG else 5)
+        time.sleep( 5)
         session = createsession()
         try:
         #if 1:
@@ -604,7 +606,7 @@ def checkuserfans(uid):
             ret = session.get(url).json()
             if 'data' in ret and 'redirect' in ret['data']:
                 if (tmp:=re.findall(r'd(\d+)',ret['data']['redirect'])):
-                    con.rpush('doctor_list',tmp[0])
+                    con.sadd('doctor_list',tmp[0])
                 return 0
             obj=DotMap(ret)
 
@@ -613,7 +615,7 @@ def checkuserfans(uid):
                 return 0
             for item in obj.data.person_fans.responseData.user_info:
                 print('add',item['uid'])
-                con.rpush('user_list',item['uid'])
+                con.sadd('user_list',item['uid'])
         except Exception as e:
             print(e)
             break
@@ -628,7 +630,7 @@ def checkuserflow(uid):
     con = get_redis_connection('default')
     while 1:
         page += 1
-        time.sleep(25 if settings.DEBUG else 5)
+        time.sleep( 5)
         session = createsession()
         try:
         #if 1:
@@ -640,7 +642,7 @@ def checkuserflow(uid):
             ret = session.get(url).json()
             if 'data' in ret and 'redirect' in ret['data']:
                 if (tmp:=re.findall(r'd(\d+)',ret['data']['redirect'])):
-                    con.rpush('doctor_list',tmp[0])
+                    con.sadd('doctor_list',tmp[0])
                 return 0
             obj=DotMap(ret)
 
@@ -648,7 +650,7 @@ def checkuserflow(uid):
             if not obj.data.person_fans.responseData.user_info or len(obj.data.person_fans.responseData.user_info)==0:
                 return 0
             for item in obj.data.person_fans.responseData.user_info:
-                con.rpush('user_list',item['uid'])
+                con.sadd('user_list',item['uid'])
         except Exception as e:
             print(e)
             break

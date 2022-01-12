@@ -52,9 +52,9 @@ def grab():
             if 'feed_list' in ret and ret['feed_list']:
                 for obj in ret['feed_list']:
                     diaryid=obj['data']['post_id']
-                    con.rpush('diary_list',diaryid)
+                    con.sadd('diary_list',diaryid)
                     uid=obj['data']['uid']
-                    con.rpush('user_list',uid)
+                    con.sadd('user_list',uid)
 
             else:
                 break

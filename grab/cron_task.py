@@ -41,9 +41,9 @@ def task_checkdiary():
     con = get_redis_connection('default')
     beforecheck('task_checkdiary')
     while 1:
-        did=int(con.lpop('diary_list'))
+        did=int(con.spop('diary_list'))
         checkdiary(did)
-        time.sleep(15)
+        time.sleep(5)
         print('aftersleep')
 
 
@@ -51,35 +51,34 @@ def task_checkuser():
     con = get_redis_connection('default')
     beforecheck(sys._getframe().f_code.co_name)
     while 1:
-        did=int(con.lpop('user_list'))
-        checkuser(did)
-        time.sleep(15)
+        did=int(con.spop('user_list'))
+        tmp=checkuser(did)
+        time.sleep(15 if tmp else 1)
         print('aftersleep')
 
 def task_checkproduct():
     con = get_redis_connection('default')
     beforecheck(sys._getframe().f_code.co_name)
     while 1:
-        did=int(con.lpop('product_list'))
-        checkproduct(did)
-        time.sleep(15)
+        did=int(con.spop('product_list'))
+        tmp=checkproduct(did)
+        time.sleep(10 if tmp else 1)
         print('aftersleep')
 
 def task_checkhospital():
     con = get_redis_connection('default')
     beforecheck(sys._getframe().f_code.co_name)
     while 1:
-        did=int(con.lpop('hospital_list'))
+        did=int(con.spop('hospital_list'))
         checkhospital(did)
-        time.sleep(15)
+        time.sleep(5)
         print('aftersleep')
 from grab.checkuser import checkuserflow,checkuserfans
 def task_checkdoctor():
     con = get_redis_connection('default')
     beforecheck(sys._getframe().f_code.co_name)
     while 1:
-        did=int(con.lpop('doctor_list'))
+        did=int(con.spop('doctor_list'))
         checkdoctor(did)
-        time.sleep(15)
+        time.sleep(5)
         print('aftersleep')
-checkuserfans('66528788')

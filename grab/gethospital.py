@@ -43,7 +43,7 @@ def grab():
             print(ret)
             if 'result' in ret and 'view' in ret['result'] and 'dphospital' in ret['result']['view']:
                 for obj in ret['result']['view']['dphospital']:
-                    con.rpush('hospital_list',obj['hospital_id'])
+                    con.sadd('hospital_list',obj['hospital_id'])
 
 
 
