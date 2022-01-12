@@ -82,4 +82,3 @@ def task_checkdoctor():
         checkdoctor(did)
         time.sleep(5)
         print('aftersleep')
-task_checkdiary()
