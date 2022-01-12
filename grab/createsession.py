@@ -19,7 +19,7 @@ class mysession:
          print(apistr)
          if cache.get('proxyflag'):
             return 0
-         cache.set('proxyflag',1,timeout=5)
+         cache.set('proxyflag',1,timeout=2)
          ret=requests.get(apistr).json()
          print(ret)
          print('proxyip:',ret['obj'][0])
