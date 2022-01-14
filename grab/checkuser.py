@@ -187,8 +187,13 @@ def checkdiary(pid):
                     model.IsCustom2Review = True
                 elif item['name'] == '体验官日记':
                     model.IsEOReview = True
+                    try:
+                        Reviewer.objects.filter(ReviewerID=b.fetch["data-v-56804bd0:0"].post_user.uid).update(IsEOuser=True)
+                    except Exception as e:
+                        pass
                 elif item['name']=='案例':
                     model.IsCase=True
+
         print('debug1222222222222222222')
         try:
             model.IsVideoReview =False if 'video' not in b.fetch["data-v-56804bd0:0"].media else True
@@ -250,11 +255,11 @@ def checkdiary(pid):
             con.sadd('product_list',model.ProductID_id)
         model.IsHQReview=True if b.fetch["data-v-56804bd0:0"].res.audit.quality_type and int(b.fetch["data-v-56804bd0:0"].res.audit.quality_type)==2 else False #优质评价
         print('22211111111')
-        try:
-            setusercollect_cnt(model.ReviewerID_id,b.fetch["data-v-56804bd0:0"].post_user.favourite_collect_cnt)
-        except Exception as e:
-            print(e)
-            pass
+        # try:
+        #     setusercollect_cnt(model.ReviewerID_id,b.fetch["data-v-56804bd0:0"].post_user.favourite_collect_cnt)
+        # except Exception as e:
+        #     print(e)
+        #     pass
 
         try:
             for item in b.fetch["data-v-56804bd0:0"].recommend:
@@ -307,20 +312,28 @@ def checkhospital(pid):
         model.RecodeYear=base.hospital_info.record_date
         model.DoctorNum=obj.data.hospital_info.doctor_cnt
         model.HospitalFollower=base.hospital_info.fansCnt
-        model.HospitalType=int(obj.data.hospital_info.institution_type)
+        #try:
+            #model.HospitalType=int(obj.data.hospital_info.institution_type)
+        # except Exception as e:
+        #     pass
 
-        model.ReviewNum=0 #评价数量
-        model.APatentNum=0 #专利数量
         model.MGCNum=0#机构动态数量
+        try:
+            ret=session.get(f'https://m.soyoung.com/hospital/profession?hospital_id={pid}')
+            print(ret.text)
+            model.APatentNum=tmp[0] if (tmp:=re.findall(r'(\d+)项专利',ret.text)) else 0
+        except Exception as e:
+            print(e)
         model.save()
         try:
-            checkhospitalproject(id)
+            checkhospitalproject(pid)
         except Exception as e:
             print(e)
         try:
-            checkhospitaldiary(id)
+            checkhospitaldiary(pid)
         except Exception as e:
             print(e)
+
     except Exception as e:
         print(e)
 
@@ -345,7 +358,10 @@ def checkhospitalproject(id):
                 model.ProjectNum=obj.data.total
                 model.save(update_fields=['ProjectNum'])
                 for item in obj.data.list:
-                    con.sadd('product_list',item.pid)
+                    try:
+                        con.sadd('product_list',item['pid'])
+                    except Exception as e:
+                        pass
                 if not obj.data.has_more:
                     break
 
@@ -361,8 +377,17 @@ def checkhospitaldiary(id):
         return 0
     cache.set(f'hostpital_diary:{id}',1,timeout=3600*24*5)
     try:
+        model = Hospital.objects.get(HospitalID=id)
+        try:
+            url='https://m.soyoung.com/collection/getDetail?is_ajax=1'
+            session=createsession()
+            ret=session.get(url,data=f'collection_id={id}&range=20&order_type=2&page=0').json()
+            model.MGCNum=ret['collection_info']['diary_cnt']
+        except Exception as e:
+            print(e)
         page=-1
         con = get_redis_connection('default')
+
         while 1:
             page+=1
             try:
@@ -371,10 +396,10 @@ def checkhospitaldiary(id):
                 time.sleep(5)
                 ret=session.get(url).json()
                 obj=DotMap(ret)
-                model=Hospital.objects.get(HospitalID=id)
+
                 model.HReviewNum=obj.data.total
 
-                model.HHQReviewNum=0
+                model.HHQReviewNum=0 #优质日记
                 for item in obj.data.base_review_tag_list:
                     if item.name=='差评':
                         model.HNegReviewNum=item.cnt
@@ -386,7 +411,7 @@ def checkhospitaldiary(id):
                         model.HVideoReviewNum=item.cnt
                     elif item.name == '消费后日记':
                         model.HPostReviewNum=item.cnt
-                model.save(update_fields=['HReviewNum','HNegReviewNum','HAddReviewNum','HImageReviewNum','HVideoReviewNum','HPostReviewNum'])
+                model.save(update_fields=['HReviewNum','HNegReviewNum','HAddReviewNum','HImageReviewNum','HVideoReviewNum','HPostReviewNum','MGCNum'])
                 try:
                    for item in obj.data.list:
                        con.sadd('diary_list',item['post_id'])
@@ -402,38 +427,68 @@ def checkhospitaldiary(id):
                 break
     except Exception as e:
         print(e)
+import requests
 def checkdoctorxiangmu(did):
     if int(did)==0:
         return 0
-    if cache.get(f'dp:{did}'):
+    if 1 and cache.get(f'dp:{did}'):
         return 0
     cache.set(f'dp:{did}',1,timeout=3600*24*5)
     now = str(datetime.datetime.now())
     try:
         url='https://m.soyoung.com/doctor/infov3tabproduct'
+        print(url)
         session=createsession()
+        session.headers.update({'user-agent':'Mozilla/5.0 (Linux; Android 6.0; Nexus 5 Build/MRA58N) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/97.0.4692.71 Mobile Safari/537.36',
+                                'x-requested-with': 'XMLHttpRequest',
+                                'sec-ch-ua-platform': '"Android"',
+                                'content-type': 'application/x-www-form-urlencoded; charset=UTF-8',
+                                })
         page=0
+        model = Doctor.objects.filter(DoctorID=did).first()
+
+        if not model:
+            model = Doctor()
+            model.DoctorID = did
         while 1:
             page+=1
             ret=session.post(url,data=f'doctor_id={did}&index={page}').json()
             obj=DotMap(ret)
-            model=Doctor.objects.filter(DoctorID=did).first()
-            if not model:
-                model = Doctor()
-                model.DoctorID = did
+            print(ret)
+            try:
+                for item in obj.list:
+                    try:
+                        con.sadd('product_list',item['pid'])
+                    except Exception as e:
+                        pass
+                    try:
+                        p=Product.objects.filter(ProductID=item['pid']).first()
+                        if not p:
+                            p=Product()
+                            p.ProductID=item['pid']
+                        p.title=item['title']
+                        p.ReturnRatio=item['over_30day']
+                        p.HospitalName=item['hospital_name']
+                        p.HospitalID_id=item['hospital_id']
+                        p.save()
+                    except Exception as e:
+                        print(e)
+            except Exception as e:
+                print(e)
+
             model.DoctorProjectNum=obj.total
             model.DoctorSales=obj.order_cnt
             try:
                 model.save()
             except Exception as e:
-                pass
+                print(e)
             break
     except Exception as e:
         print(e)
 def checkdoctordiary(did):
     if int(did==0):
         return 0
-    if cache.get(f'dictor_diary:{did}'):
+    if 1 and cache.get(f'dictor_diary:{did}'):
         return 0
     cache.set(f'dictor_diary:{did}',1,timeout=3600*24*5)
     model=Doctor.objects.get(DoctorID=did)
@@ -441,6 +496,7 @@ def checkdoctordiary(did):
     try:
         page=0
         url=f'https://m.soyoung.com/doctor/InfoV4TabDiary?index={page}&range=10&review_tag_id=&tag_id=0&tag_type=all&doctor_id={did}'
+        print(url)
         session=createsession()
         ret=session.get(url).json()
         obj=DotMap(ret)
@@ -540,11 +596,29 @@ def checkdoctor(did):
 def checkuser(uid):
     if int(uid)==0:
         return 0
-    if cache.get(f'u:{uid}'):
+    if 1 and cache.get(f'u:{uid}'):
         return 0
     cache.set(f'u:{uid}',1,timeout=3600*24*7)
     page = 0
     con = get_redis_connection('default')
+
+    try:
+        model = Reviewer.objects.filter(ReviewerID=uid).first()
+        if not model:
+            model = Reviewer()
+            model.ReviewerID =uid
+        session=createsession()
+        ret=session.get(f'https://m.soyoung.com/home/userhome?uid={uid}')
+        soup=BeautifulSoup(ret.text,features="html.parser")
+        try:
+            model.ReviewerLikes2==tmp[0] if (tmp:=re.findall(r'喜欢(\d+)',ret.text)) else 0
+            model.ReviewerLikes=soup.select('div.zan span.em')[0].string
+            model.ReviewerPosts=tmp[0] if (tmp:=re.findall(r'动态(\d+)',ret.text)) else 0
+            print('psot:',model.ReviewerPosts)
+        except Exception as e:
+            print(e)
+    except Exception as e:
+        pass
     while 1:
         page += 1
         time.sleep(5)
@@ -560,18 +634,18 @@ def checkuser(uid):
                 if (tmp:=re.findall(r'd(\d+)',ret['data']['redirect'])):
                     con.sadd('doctor_list',tmp[0])
                 return 0
-            model=Reviewer.objects.filter(ReviewerID=ret['data']['info']['uid']).first()
-            if not model:
-                model=Reviewer()
-                model.ReviewerID=ret['data']['info']['uid']
-            model.ReviewerName=ret['data']['info']['user_name']
-            model.ReviewerLevel=ret['data']['info']['xy_money']
-            model.ReviewerExp = ret['data']['info']['experience']
-            model.ReviewerAge=ret['data']['info']['age']
+
+            try:
+                model.ReviewerAge=None if int(ret['data']['info']['age'])>=18 else ret['data']['info']['age']
+            except Exception as e:
+                pass
+            try:
+                model.ReviewerCity=ret['data']['info']['city_name']
+            except Exception as e:
+                pass
             model.ReviewerGender='女' if int(ret['data']['info']['gender'])==0 else '男'
             obj=DotMap(ret)
             model.ReviewerFollwer=obj.data.info.type_total.fans_total
-            model.ReviewerPosts=obj.data.info.type_total.pub_post_total
             model.ReviewerFollowee=obj.data.info.type_total.follow_total
             model.save()
             #print('len:',obj.data.person_post.responseData.post_list.list)

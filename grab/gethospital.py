@@ -13,6 +13,7 @@ from grab.createsession import createsession
 from grab.models import Product,Hospital
 import datetime,time
 import psutil
+from django.conf import settings
 def check():
     pidfile=os.path.split(__file__)[-1]+'.pid'
     if os.path.exists(os.path.join(settings.BASE_DIR,'run',pidfile)):
@@ -43,6 +44,17 @@ def grab():
             print(ret)
             if 'result' in ret and 'view' in ret['result'] and 'dphospital' in ret['result']['view']:
                 for obj in ret['result']['view']['dphospital']:
+                    model=Hospital.objects.filter(HospitalID=obj['hospital_id']).first()
+                    if not model:
+                        model=Hospital()
+                        model.HospitalID=obj['hospital_id']
+
+                    model.ServiceNum= obj['hospital_pid_cnt']
+                    model.ReviewNum=obj['calendar_group_cnt']
+                    model.HospitalName=obj['name_cn']
+                    model.HospitalType=obj['type']
+                    model.CrawlTime=now
+                    model.save()
                     con.sadd('hospital_list',obj['hospital_id'])
 
 

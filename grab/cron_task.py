@@ -35,7 +35,7 @@ def beforecheck(name):
     with open(os.path.join(settings.BASE_DIR, 'run', pidfile), 'w') as f:
         f.write(str(os.getpid()))
 
-from grab.checkuser import checkproduct,checkproductdiary,checkdiary,checkdiaryreply,checkhospital,checkdoctor,checkuser
+from grab.checkuser import checkproduct,checkproductdiary,checkdiary,checkdiaryreply,checkhospital,checkdoctor,checkuser,checkdoctordiary,checkdoctorxiangmu
 
 def task_checkdiary():
     con = get_redis_connection('default')
