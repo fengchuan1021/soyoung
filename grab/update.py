@@ -21,4 +21,4 @@ def updatedb():
         sql = 'update grab_hospital a join (select HospitalID,count(HospitalID) as n from grab_diary where IsHQReview=1 GROUP BY HospitalID ) b on a.HospitalID=b.HospitalID set a.HHQReviewNum=b.n'
         cur.execute(sql)
         cur.execute('update (select  min(ReviewDate) as ReviewDate,ProductID from  grab_diary where !ISNULL(ProductID) GROUP BY ProductID) a join grab_product b on a.ProductID =b.ProductID  set b.PFirstCommentTime=a.ReviewDate')
-        cur.execute('update (select  ROUND(AVG(ReviewRating),1) as avgscore,ProductID from  grab_diary where !ISNULL(ProductID) GROUP BY ProductID) a join grab_product b on a.ProductID =b.ProductID  set b.PAverageScore=a.avgscore')
+        cur.execute('update (select  ROUND(AVG(ReviewRating),1) as avgscore,ProductID from  grab_diary where !ISNULL(ProductID) and ReviewRating!=0 GROUP BY ProductID) a join grab_product b on a.ProductID =b.ProductID  set b.PAverageScore=a.avgscore')

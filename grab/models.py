@@ -85,7 +85,7 @@ class Diary(models.Model):
     IsVideoReview = models.BooleanField(blank=True, null=True,default=False)
     ReviewDate=models.DateTimeField(db_index=True)
     ReviewViews=models.IntegerField(default=0)
-    ReviewRating=models.FloatField(default=0)
+    ReviewRating=models.FloatField(default=0,db_index=True)
     ReviewERating=models.FloatField(default=0)
     ReviewSRating = models.FloatField(default=0)
     ReviewTRating = models.FloatField(default=0)

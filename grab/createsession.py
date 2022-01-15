@@ -60,8 +60,9 @@ class mysession:
             try:
                ret=self.session.get(*args,**kwargs)
             except Exception as e:
+               print(e)
                self.changeip()
-               time.sleep(2)
+               time.sleep(0.01)
                continue
             if 'ERROR: ACCESS DENIED' in ret.text:
                self.changeip()

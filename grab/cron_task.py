@@ -43,7 +43,7 @@ def task_checkdiary():
     while 1:
         did=int(con.spop('diary_list'))
         checkdiary(did)
-        time.sleep(5)
+        time.sleep(0.01)
         print('aftersleep')
 
 
@@ -53,7 +53,7 @@ def task_checkuser():
     while 1:
         did=int(con.spop('user_list'))
         tmp=checkuser(did)
-        time.sleep(5 if tmp else 1)
+        time.sleep(0.01)
         print('aftersleep')
 
 def task_checkproduct():
@@ -62,7 +62,7 @@ def task_checkproduct():
     while 1:
         did=int(con.spop('product_list'))
         tmp=checkproduct(did)
-        time.sleep(10 if tmp else 1)
+        time.sleep(0.01)
         print('aftersleep')
 
 def task_checkhospital():
@@ -71,7 +71,7 @@ def task_checkhospital():
     while 1:
         did=int(con.spop('hospital_list'))
         checkhospital(did)
-        time.sleep(5)
+        time.sleep(0.01)
         print('aftersleep')
 from grab.checkuser import checkuserflow,checkuserfans
 def task_checkdoctor():
@@ -80,8 +80,8 @@ def task_checkdoctor():
     while 1:
         did=int(con.spop('doctor_list'))
         checkdoctor(did)
-        time.sleep(5)
+        time.sleep(0.01)
         print('aftersleep')
-#task_checkuser()
+
 
 #164361819

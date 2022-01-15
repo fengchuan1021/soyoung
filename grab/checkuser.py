@@ -75,7 +75,19 @@ def checkproduct(pid):
         model.ProductPrice=b.fetch[key].productData.product.price_online
         model.ProductSale=b.fetch[key].productData.product.show_order_cnt
         #退单率
-        model.ReturnRatio=0
+        # try:
+        #     for tmp in obj.fetch["data-v-16523c62:0"].productData.product.recommend:
+        #         try:
+        #             tmpmodel=model=Product.objects.filter(ProductID=tmp['pid']).first()
+        #             if not tmpmodel:
+        #                 tmpmodel=Product()
+        #                 tmpmodel.ProductID=tmp['pid']
+        #             tmpmodel.ProductName=tmp['title']
+        #             tmpmodel.save()
+        #         except Exception as e:
+        #             pass
+        # except Exception as e:
+        #     print(e)
         if b.fetch[key].productData.product.content.describe_other:
             for item in b.fetch[key].productData.product.content.describe_other:
                 if item['name']=='额外费用':
@@ -166,9 +178,9 @@ def checkdiary(pid):
     session=createsession()
     try:
     #if 1:
-
-        ret=session.get(f'https://www.soyoung.com/p{pid}')
         print(f'https://www.soyoung.com/p{pid}')
+        ret=session.get(f'https://www.soyoung.com/p{pid}')
+
         b = js2py.eval_js(re.findall(r'(window\.__NUXT__.*?)</script>', ret.text)[0])
 
         model.ReviewContent=b.fetch["data-v-56804bd0:0"].res.content[0].raw_text
@@ -179,6 +191,11 @@ def checkdiary(pid):
         model.RCrawlDate=now
         print(111111111111111111)
         print(b.fetch["data-v-56804bd0:0"].extension)
+        try:
+            if int(b.fetch["data-v-56804bd0:0"].post_user.certified_type)==3:
+                model.DoctorID=b.fetch["data-v-56804bd0:0"].post_user.certified_id
+        except Exception as e:
+            pass
         if 'extension' in b.fetch["data-v-56804bd0:0"] and  b.fetch["data-v-56804bd0:0"].extension and b.fetch["data-v-56804bd0:0"].extension.display_label_list:
             for item in b.fetch["data-v-56804bd0:0"].extension.display_label_list:
                 if item['name']=='通过新氧消费':
@@ -351,7 +368,7 @@ def checkhospitalproject(id):
             try:
                 url=f'https://m.soyoung.com/hospital/product?hospital_id={id}&page={page}&limit=20&menu1_id=&uid=&is_home=0'
                 session=createsession()
-                time.sleep(1)
+                time.sleep(0.01)
                 ret=session.get(url).json()
                 obj=DotMap(ret)
                 model=Hospital.objects.get(HospitalID=id)
@@ -393,7 +410,7 @@ def checkhospitaldiary(id):
             try:
                 url=f'https://m.soyoung.com/hospital/postComment?index={page}&range=10&review_tag_id=&tag_id=0&tag_type=all&hospital_id={id}&menu_id=&official_post=0&uid=&is_home=0&menu1_id='
                 session=createsession()
-                time.sleep(1)
+                time.sleep(0.01)
                 ret=session.get(url).json()
                 obj=DotMap(ret)
 
@@ -623,7 +640,7 @@ def checkuser(uid):
         pass
     while 1:
         page += 1
-        time.sleep(1)
+        time.sleep(0.01)
         session = createsession()
         try:
         #if 1:
@@ -680,7 +697,7 @@ def checkuserfans(uid):
     con = get_redis_connection('default')
     while 1:
         page += 1
-        time.sleep(1)
+        time.sleep(0.01)
         session = createsession()
         try:
         #if 1:
@@ -716,7 +733,7 @@ def checkuserflow(uid):
     con = get_redis_connection('default')
     while 1:
         page += 1
-        time.sleep(1)
+        time.sleep(0.01)
         session = createsession()
         try:
         #if 1:
