@@ -351,7 +351,7 @@ def checkhospitalproject(id):
             try:
                 url=f'https://m.soyoung.com/hospital/product?hospital_id={id}&page={page}&limit=20&menu1_id=&uid=&is_home=0'
                 session=createsession()
-                time.sleep(5)
+                time.sleep(1)
                 ret=session.get(url).json()
                 obj=DotMap(ret)
                 model=Hospital.objects.get(HospitalID=id)
@@ -393,7 +393,7 @@ def checkhospitaldiary(id):
             try:
                 url=f'https://m.soyoung.com/hospital/postComment?index={page}&range=10&review_tag_id=&tag_id=0&tag_type=all&hospital_id={id}&menu_id=&official_post=0&uid=&is_home=0&menu1_id='
                 session=createsession()
-                time.sleep(5)
+                time.sleep(1)
                 ret=session.get(url).json()
                 obj=DotMap(ret)
 
@@ -608,7 +608,9 @@ def checkuser(uid):
             model = Reviewer()
             model.ReviewerID =uid
         session=createsession()
+        print(f'https://m.soyoung.com/home/userhome?uid={uid}')
         ret=session.get(f'https://m.soyoung.com/home/userhome?uid={uid}')
+
         soup=BeautifulSoup(ret.text,features="html.parser")
         try:
             model.ReviewerLikes2==tmp[0] if (tmp:=re.findall(r'喜欢(\d+)',ret.text)) else 0
@@ -621,7 +623,7 @@ def checkuser(uid):
         pass
     while 1:
         page += 1
-        time.sleep(5)
+        time.sleep(1)
         session = createsession()
         try:
         #if 1:
@@ -678,7 +680,7 @@ def checkuserfans(uid):
     con = get_redis_connection('default')
     while 1:
         page += 1
-        time.sleep( 5)
+        time.sleep(1)
         session = createsession()
         try:
         #if 1:
@@ -714,7 +716,7 @@ def checkuserflow(uid):
     con = get_redis_connection('default')
     while 1:
         page += 1
-        time.sleep( 5)
+        time.sleep(1)
         session = createsession()
         try:
         #if 1:

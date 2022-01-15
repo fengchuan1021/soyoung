@@ -53,7 +53,7 @@ def task_checkuser():
     while 1:
         did=int(con.spop('user_list'))
         tmp=checkuser(did)
-        time.sleep(15 if tmp else 1)
+        time.sleep(5 if tmp else 1)
         print('aftersleep')
 
 def task_checkproduct():

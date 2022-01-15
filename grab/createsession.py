@@ -20,14 +20,16 @@ class mysession:
          if cache.get('proxyflag'):
             return 0
          cache.set('proxyflag',1,timeout=2)
-         ret=requests.get(apistr).json()
-         print(ret)
-         print('proxyip:',ret['obj'][0])
-         port=ret['obj'][0]['port']
-         ip=ret['obj'][0]['ip']
+         ret=requests.get(apistr)
+         ip,port=ret.text.split(':')
+         ip=ip.strip()
+         port=int(port)
+
+         proxyurl=os.getenv('PROXYURL').replace("{IP}",ip).replace('{PORT}',str(port))
+         print(proxyurl)
          proxies={
-            'http':f'{ip}:{port}',
-            'https':f'{ip}:{port}'
+            'http':proxyurl,
+            'https':proxyurl
             }
          cache.set('proxyip',proxies)
          self.session.proxies=proxies
@@ -60,15 +62,18 @@ class mysession:
             try:
                ret=self.session.get(*args,**kwargs)
             except Exception as e:
+               print(e)
                self.changeip()
                time.sleep(2)
                continue
             if 'ERROR: ACCESS DENIED' in ret.text:
+
                self.changeip()
             else:
                break
          return ret
       except Exception as e:
+         print(e)
          return ret
       pass
 def createsession():

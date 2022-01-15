@@ -22,5 +22,3 @@ def updatedb():
         cur.execute(sql)
         cur.execute('update (select  min(ReviewDate) as ReviewDate,ProductID from  grab_diary where !ISNULL(ProductID) GROUP BY ProductID) a join grab_product b on a.ProductID =b.ProductID  set b.PFirstCommentTime=a.ReviewDate')
         cur.execute('update (select  ROUND(AVG(ReviewRating),1) as avgscore,ProductID from  grab_diary where !ISNULL(ProductID) GROUP BY ProductID) a join grab_product b on a.ProductID =b.ProductID  set b.PAverageScore=a.avgscore')
-
-updatedb()
