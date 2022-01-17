@@ -92,6 +92,6 @@ def task_checkdoctor():
         #time.sleep(0.01)
         con.zrem('doctor_list', *arr)
         print('aftersleep')
-task_checkproduct()
+
 
 #164361819

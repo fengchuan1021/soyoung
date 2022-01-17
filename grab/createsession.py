@@ -86,8 +86,9 @@ class mysession:
          print(apistr)
          if cache.get('proxyflag'):
             time.sleep(1)
+            print('not realchange')
             return 0
-         cache.set('proxyflag',1,timeout=2)
+         cache.set('proxyflag',1,timeout=180)
          ret=requests.get(apistr).json()
          print(ret)
          print('proxyip:',ret['obj'][0])
@@ -98,7 +99,10 @@ class mysession:
             'https':f'{ip}:{port}'
             }
          cache.set('proxyip',proxies,timeout=240)
+         #print(self.)
+         self.session.cookies.clear()
          self.session.proxies=proxies
+         print(self.session.proxies)
       except Exception as e:
          print(e)
    @property
