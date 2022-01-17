@@ -42,7 +42,7 @@ class Product(models.Model):
     HospitalName = models.CharField(max_length=64, default='')
     HospitalRating=models.FloatField(default=0)
     DoctorNum=models.IntegerField(default=0)
-    HospitalAddress=models.CharField(max_length=64,default='')
+    HospitalAddress=models.CharField(max_length=512,default='')
 
     ProductOPrice=models.FloatField(default=0)
     ProductPrice=models.FloatField(default=0)

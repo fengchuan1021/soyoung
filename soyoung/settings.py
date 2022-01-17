@@ -145,6 +145,7 @@ CRONJOBS = [
 ('*/10 * * * *', 'grab.cron_task.task_checkdoctor'),
 ('*/20 * * * *', 'grab.getdiaryindexfeed.grab'),
 ('*/20 * * * *', 'grab.gethospital.grab'),
+('*/20 * * * *', 'grab.getproduct.grab'),
 ('0 */5 * * *', 'grab.update.updatedb'),
 ]
 CACHES = {

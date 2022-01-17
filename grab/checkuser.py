@@ -57,14 +57,14 @@ def checkproduct(pid):
         useragent='Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/92.0.4515.159 Safari/537.36'
         session.headers.update({'user-agent': useragent})
         ret=session.get(url)
-        print(ret.url)
+
         b=js2py.eval_js(re.findall(r'(window\.__NUXT__.*?)</script>',ret.text)[0])
         soup=BeautifulSoup(ret.text,features="html.parser")
         #key=soup.select('.main')[0].attrs['data-fetch-key']
         key=soup.find(lambda x: x.has_attr("data-fetch-key") and not (x.has_attr('class') and 'search-header' in x['class'])).attrs['data-fetch-key']
-        print(key)
-        print(b.fetch)
+
         #exit(0)
+        #print(b.fetch[key])
         model.ProductName=b.fetch[key].productData.title
         model.HospitalID_id=b.fetch[key].productData.product.hospital.id
         model.HospitalName=b.fetch[key].productData.product.hospital.name_cn
@@ -74,16 +74,18 @@ def checkproduct(pid):
         model.ProductOPrice=b.fetch[key].productData.product.price_origin
         model.ProductPrice=b.fetch[key].productData.product.price_online
         model.ProductSale=b.fetch[key].productData.product.show_order_cnt
+        #model.ReturnRatio=
         #退单率
         # try:
-        #     for tmp in obj.fetch["data-v-16523c62:0"].productData.product.recommend:
+        #     for tmp in b.fetch["data-v-16523c62:0"].productData.product.recommend:
         #         try:
-        #             tmpmodel=model=Product.objects.filter(ProductID=tmp['pid']).first()
+        #             tmpmodel=Product.objects.filter(ProductID=tmp['pid']).first()
         #             if not tmpmodel:
         #                 tmpmodel=Product()
         #                 tmpmodel.ProductID=tmp['pid']
         #             tmpmodel.ProductName=tmp['title']
-        #             tmpmodel.save()
+        #             tmpmodel.ReturnRatio=tmp['over_30day']
+        #             tmpmodel.save(update_fields=['ProductName','ReturnRatio'])
         #         except Exception as e:
         #             pass
         # except Exception as e:
@@ -99,7 +101,7 @@ def checkproduct(pid):
     return 1
 def checkproductdiary(pid):
     now = str(datetime.datetime.now())
-    print(11)
+
     if 1 and cache.get(f'productdiary:{pid}'):
         return 0
     cache.set(f'productdiary::{pid}',1,timeout=3600*24*5)
@@ -113,7 +115,7 @@ def checkproductdiary(pid):
         session=createsession()
         ret=session.get(url).json()
         obj=DotMap(ret)
-        print(22)
+
         model.PReviewNum=obj.total
         for item in obj.base_review_tag_list:
             if item.name=='消费后日记':
@@ -126,17 +128,17 @@ def checkproductdiary(pid):
                 model.PImageReviewNum = int(item.cnt) if item.cnt else 0
             elif item.name == '有视频':
                 model.PVideoReviewNum = int(item.cnt) if item.cnt else 0
-        print(222222)
+
         model.save()
         con = get_redis_connection('default')
 
         for item in obj.list:
             try:
-                con.sadd('diary_list', item['post_id'])
-                con.sadd('user_list',item['post_user']['uid'])
+                con.zadd('diary_list', {item['post_id']:int(time.time())})
+                con.zadd('user_list',{item['post_user']['uid']:int(time.time())})
             except Exception as e:
                 print(e)
-                pass
+
     except Exception as e:
         print(e)
 def checkdiaryreply(pid):
@@ -156,12 +158,12 @@ def checkdiaryreply(pid):
                 flag=1
                 model.HospitalResponseText = item['content_new']  # 机构回复
             elif  int(item['certified_type'])!=2 :
-                con.sadd('user_list',item['uid'])
+                con.zadd('user_list',{item['uid']:int(time.time())})
         model.save()
         try:
             con = get_redis_connection('default')
             for item in obj.responseData.list:
-                con.sadd('user_list',item['uid'])
+                con.zadd('user_list',{item['uid']:int(time.time())})
         except Exception as e:
             print(e)
     except Exception as e:
@@ -184,13 +186,13 @@ def checkdiary(pid):
         b = js2py.eval_js(re.findall(r'(window\.__NUXT__.*?)</script>', ret.text)[0])
 
         model.ReviewContent=b.fetch["data-v-56804bd0:0"].res.content[0].raw_text
-        print('why')
+
         model.ReviewReplyNum=b.fetch["data-v-56804bd0:0"].stat.reply_cnt
         model.ReviewFollowNum=b.fetch["data-v-56804bd0:0"].stat.collection_cnt
         model.ReviewLikeNum = b.fetch["data-v-56804bd0:0"].stat.real_favorite_cnt
         model.RCrawlDate=now
-        print(111111111111111111)
-        print(b.fetch["data-v-56804bd0:0"].extension)
+
+
         try:
             if int(b.fetch["data-v-56804bd0:0"].post_user.certified_type)==3:
                 model.DoctorID=b.fetch["data-v-56804bd0:0"].post_user.certified_id
@@ -211,7 +213,7 @@ def checkdiary(pid):
                 elif item['name']=='案例':
                     model.IsCase=True
 
-        print('debug1222222222222222222')
+
         try:
             model.IsVideoReview =False if 'video' not in b.fetch["data-v-56804bd0:0"].media else True
             model.IsImageReview=False if 'content_image_list' not in b.fetch["data-v-56804bd0:0"].media else True
@@ -220,8 +222,7 @@ def checkdiary(pid):
         #model.ReviewDate=re.findall(r'create_date="(.*?)"',ret.text)[0]
         model.ReviewDate=b.fetch["data-v-56804bd0:0"].base.create_date
         model.ReviewViews=b.fetch["data-v-56804bd0:0"].stat.view_cnt
-        print('333333333333')
-        print(b.fetch["data-v-56804bd0:0"].star_score)
+
         if 'star_score' in b.fetch["data-v-56804bd0:0"] and b.fetch["data-v-56804bd0:0"].star_score:
             model.ReviewERating=b.fetch["data-v-56804bd0:0"].star_score.environment
             model.ReviewSRating =b.fetch["data-v-56804bd0:0"].star_score.service
@@ -236,21 +237,21 @@ def checkdiary(pid):
             model.ReviewVideo='' if 'video' not in b.fetch["data-v-56804bd0:0"].media else b.fetch["data-v-56804bd0:0"].media.video.url
         except Exception as e:
             pass
-        print(99999999)
+
 
         model.ReviewAddText='' if ('append' not in b.fetch["data-v-56804bd0:0"] or not b.fetch["data-v-56804bd0:0"].append) else '#'.join([item.content[0].raw_text for item in b.fetch["data-v-56804bd0:0"].append])
-        print(8888888)
+
         model.FollowReviewNum=b.fetch["data-v-56804bd0:0"].res.collect_diary_list.diary_cnt if 'collect_diary_list' in  b.fetch["data-v-56804bd0:0"].res else 0
         model.ReviewerID_id=b.fetch["data-v-56804bd0:0"].post_user.uid
         con = get_redis_connection('default')
-        print('debug111111111111111111')
+
         try:
             if 'collect_diary_list' in b.fetch["data-v-56804bd0:0"].res:
                 model.CollectionID=b.fetch["data-v-56804bd0:0"].res.collect_diary_list.collection_id
 
                 for item in b.fetch["data-v-56804bd0:0"].res.collect_diary_list.list:
                     try:
-                        con.sadd('diary_list',item['post_id'])
+                        con.zadd('diary_list',{item['post_id']:int(time.time())})
                     except Exception as e:
                         print(e)
                         pass
@@ -260,18 +261,18 @@ def checkdiary(pid):
         if 'doctor_card' in b.fetch["data-v-56804bd0:0"].attribute:
             model.DoctorID_id=b.fetch["data-v-56804bd0:0"].attribute.doctor_card[0].doctor_id
             model.DoctorName=b.fetch["data-v-56804bd0:0"].attribute.doctor_card[0].name_cn
-            con.sadd('doctor_list',model.DoctorID_id)
+            con.zadd('doctor_list',{model.DoctorID_id:int(time.time())})
         if 'hospital_card' in b.fetch["data-v-56804bd0:0"].attribute:
             model.HospitalID_id=b.fetch["data-v-56804bd0:0"].attribute.hospital_card[0].hospital_id
             model.HospitalName=b.fetch["data-v-56804bd0:0"].attribute.hospital_card[0].name_cn
-            con.sadd('hospital_list',model.HospitalID_id)
-        print('444444')
+            con.zadd('hospital_list',{model.HospitalID_id:int(time.time())})
+
         if 'product_card' in b.fetch["data-v-56804bd0:0"].attribute:
             model.ProductID_id=b.fetch["data-v-56804bd0:0"].attribute.product_card[0].product.pid
             model.ProductName=b.fetch["data-v-56804bd0:0"].attribute.product_card[0].product.title
-            con.sadd('product_list',model.ProductID_id)
+            con.zadd('product_list',{model.ProductID_id:int(time.time())})
         model.IsHQReview=True if b.fetch["data-v-56804bd0:0"].res.audit.quality_type and int(b.fetch["data-v-56804bd0:0"].res.audit.quality_type)==2 else False #优质评价
-        print('22211111111')
+
         # try:
         #     setusercollect_cnt(model.ReviewerID_id,b.fetch["data-v-56804bd0:0"].post_user.favourite_collect_cnt)
         # except Exception as e:
@@ -281,15 +282,14 @@ def checkdiary(pid):
         try:
             for item in b.fetch["data-v-56804bd0:0"].recommend:
                 if 'type' in item and item['type']==35:
-                    con.sadd('diary_list',item['data']['post_id'])
-                    con.sadd('user_list',item['data']['uid'])
+                    con.zadd('diary_list',{item['data']['post_id']:int(time.time())})
+                    con.zadd('user_list',{item['data']['uid']:int(time.time())})
         except Exception as e:
             print(e)
-            print(b.fetch["data-v-56804bd0:0"].recommend)
-            pass
-        print('beforesave')
+
+
         model.save()
-        print('aftersave')
+
         try:
             checkdiaryreply(pid)
         except Exception as e:
@@ -337,7 +337,7 @@ def checkhospital(pid):
         model.MGCNum=0#机构动态数量
         try:
             ret=session.get(f'https://m.soyoung.com/hospital/profession?hospital_id={pid}')
-            print(ret.text)
+
             model.APatentNum=tmp[0] if (tmp:=re.findall(r'(\d+)项专利',ret.text)) else 0
         except Exception as e:
             print(e)
@@ -368,7 +368,7 @@ def checkhospitalproject(id):
             try:
                 url=f'https://m.soyoung.com/hospital/product?hospital_id={id}&page={page}&limit=20&menu1_id=&uid=&is_home=0'
                 session=createsession()
-                time.sleep(0.01)
+                #time.sleep(0.01)
                 ret=session.get(url).json()
                 obj=DotMap(ret)
                 model=Hospital.objects.get(HospitalID=id)
@@ -376,7 +376,7 @@ def checkhospitalproject(id):
                 model.save(update_fields=['ProjectNum'])
                 for item in obj.data.list:
                     try:
-                        con.sadd('product_list',item['pid'])
+                        con.zadd('product_list',{item['pid']:int(time.time())})
                     except Exception as e:
                         pass
                 if not obj.data.has_more:
@@ -410,7 +410,7 @@ def checkhospitaldiary(id):
             try:
                 url=f'https://m.soyoung.com/hospital/postComment?index={page}&range=10&review_tag_id=&tag_id=0&tag_type=all&hospital_id={id}&menu_id=&official_post=0&uid=&is_home=0&menu1_id='
                 session=createsession()
-                time.sleep(0.01)
+                #time.sleep(0.01)
                 ret=session.get(url).json()
                 obj=DotMap(ret)
 
@@ -431,8 +431,8 @@ def checkhospitaldiary(id):
                 model.save(update_fields=['HReviewNum','HNegReviewNum','HAddReviewNum','HImageReviewNum','HVideoReviewNum','HPostReviewNum','MGCNum'])
                 try:
                    for item in obj.data.list:
-                       con.sadd('diary_list',item['post_id'])
-                       con.sadd('user_list',item['uid'])
+                       con.zadd('diary_list',{item['post_id']:int(time.time())})
+                       con.zadd('user_list',{item['uid']:int(time.time())})
                 except Exception as e:
                     print(e)
                 if not obj.data.has_more:
@@ -471,27 +471,27 @@ def checkdoctorxiangmu(did):
             page+=1
             ret=session.post(url,data=f'doctor_id={did}&index={page}').json()
             obj=DotMap(ret)
-            print(ret)
-            try:
-                for item in obj.list:
-                    try:
-                        con.sadd('product_list',item['pid'])
-                    except Exception as e:
-                        pass
-                    try:
-                        p=Product.objects.filter(ProductID=item['pid']).first()
-                        if not p:
-                            p=Product()
-                            p.ProductID=item['pid']
-                        p.title=item['title']
-                        p.ReturnRatio=item['over_30day']
-                        p.HospitalName=item['hospital_name']
-                        p.HospitalID_id=item['hospital_id']
-                        p.save()
-                    except Exception as e:
-                        print(e)
-            except Exception as e:
-                print(e)
+
+            # try:
+            #     for item in obj.list:
+            #         try:
+            #             con.zadd('product_list',item['pid'])
+            #         except Exception as e:
+            #             pass
+            #         try:
+            #             p=Product.objects.filter(ProductID=item['pid']).first()
+            #             if not p:
+            #                 p=Product()
+            #                 p.ProductID=item['pid']
+            #             p.title=item['title']
+            #             p.ReturnRatio=item['over_30day']
+            #             p.HospitalName=item['hospital_name']
+            #             p.HospitalID_id=item['hospital_id']
+            #             p.save()
+            #         except Exception as e:
+            #             print(e)
+            # except Exception as e:
+            #     print(e)
 
             model.DoctorProjectNum=obj.total
             model.DoctorSales=obj.order_cnt
@@ -532,8 +532,8 @@ def checkdoctordiary(did):
         model.save()
         for item in obj.list:
             try:
-                con.sadd('diary_list',item['post_id'])
-                con.sadd('user_list',item['uid'])
+                con.zadd('diary_list',{item['post_id']:int(time.time())})
+                con.zadd('user_list',{item['uid']:int(time.time())})
             except Exception as e:
                 print(e)
     except Exception as e:
@@ -633,14 +633,14 @@ def checkuser(uid):
             model.ReviewerLikes2==tmp[0] if (tmp:=re.findall(r'喜欢(\d+)',ret.text)) else 0
             model.ReviewerLikes=soup.select('div.zan span.em')[0].string
             model.ReviewerPosts=tmp[0] if (tmp:=re.findall(r'动态(\d+)',ret.text)) else 0
-            print('psot:',model.ReviewerPosts)
+
         except Exception as e:
             print(e)
     except Exception as e:
         pass
     while 1:
         page += 1
-        time.sleep(0.01)
+        #time.sleep(0.01)
         session = createsession()
         try:
         #if 1:
@@ -651,7 +651,7 @@ def checkuser(uid):
             ret = session.get(url).json()
             if 'data' in ret and 'redirect' in ret['data']:
                 if (tmp:=re.findall(r'd(\d+)',ret['data']['redirect'])):
-                    con.sadd('doctor_list',tmp[0])
+                    con.zadd('doctor_list',{tmp[0]:int(time.time())})
                 return 0
 
             try:
@@ -671,7 +671,7 @@ def checkuser(uid):
             if len(obj.data.person_post.responseData.post_list.list)==0:
                 break
             for item in obj.data.person_post.responseData.post_list.list:
-                con.sadd('diary_list',item['post_id'])
+                con.zadd('diary_list',{item['post_id']:int(time.time())})
 
         except Exception as e:
             print(e)
@@ -697,7 +697,7 @@ def checkuserfans(uid):
     con = get_redis_connection('default')
     while 1:
         page += 1
-        time.sleep(0.01)
+        #time.sleep(0.01)
         session = createsession()
         try:
         #if 1:
@@ -709,7 +709,7 @@ def checkuserfans(uid):
             ret = session.get(url).json()
             if 'data' in ret and 'redirect' in ret['data']:
                 if (tmp:=re.findall(r'd(\d+)',ret['data']['redirect'])):
-                    con.sadd('doctor_list',tmp[0])
+                    con.zadd('doctor_list',{tmp[0]:int(time.time())})
                 return 0
             obj=DotMap(ret)
 
@@ -717,8 +717,8 @@ def checkuserfans(uid):
             if not obj.data.person_fans.responseData.user_info or len(obj.data.person_fans.responseData.user_info)==0:
                 return 0
             for item in obj.data.person_fans.responseData.user_info:
-                print('add',item['uid'])
-                con.sadd('user_list',item['uid'])
+
+                con.zadd('user_list',{item['uid']:int(time.time())})
         except Exception as e:
             print(e)
             break
@@ -733,7 +733,7 @@ def checkuserflow(uid):
     con = get_redis_connection('default')
     while 1:
         page += 1
-        time.sleep(0.01)
+        #time.sleep(0.01)
         session = createsession()
         try:
         #if 1:
@@ -743,9 +743,10 @@ def checkuserflow(uid):
             print(url)
 
             ret = session.get(url).json()
+
             if 'data' in ret and 'redirect' in ret['data']:
                 if (tmp:=re.findall(r'd(\d+)',ret['data']['redirect'])):
-                    con.sadd('doctor_list',tmp[0])
+                    con.zadd('doctor_list',{tmp[0]:int(time.time())})
                 return 0
             obj=DotMap(ret)
 
@@ -753,7 +754,7 @@ def checkuserflow(uid):
             if not obj.data.person_fans.responseData.user_info or len(obj.data.person_fans.responseData.user_info)==0:
                 return 0
             for item in obj.data.person_fans.responseData.user_info:
-                con.sadd('user_list',item['uid'])
+                con.zadd('user_list',{item['uid']:int(time.time())})
         except Exception as e:
             print(e)
             break

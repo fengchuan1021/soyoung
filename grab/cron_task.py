@@ -41,9 +41,11 @@ def task_checkdiary():
     con = get_redis_connection('default')
     beforecheck('task_checkdiary')
     while 1:
-        did=int(con.spop('diary_list'))
-        checkdiary(did)
-        time.sleep(0.01)
+        arr=con.zrange('diary_list',0,100)
+        for did in arr:
+            checkdiary(did.decode())
+        #time.sleep(0.01)
+        con.zrem('diary_list', *arr)
         print('aftersleep')
 
 
@@ -51,37 +53,45 @@ def task_checkuser():
     con = get_redis_connection('default')
     beforecheck(sys._getframe().f_code.co_name)
     while 1:
-        did=int(con.spop('user_list'))
-        tmp=checkuser(did)
-        time.sleep(0.01)
+        arr=con.zrange('user_list',0,100)
+        for did in arr:
+            tmp=checkuser(did.decode())
+        #time.sleep(0.01)
+        con.zrem('usesr_list',*arr)
         print('aftersleep')
 
 def task_checkproduct():
     con = get_redis_connection('default')
     beforecheck(sys._getframe().f_code.co_name)
     while 1:
-        did=int(con.spop('product_list'))
-        tmp=checkproduct(did)
-        time.sleep(0.01)
+        arr=con.zrange('product_list',0,100)
+        for did in arr:
+            tmp=checkproduct(did.decode())
+        #time.sleep(0.01)
+        con.zrem('product_list', *arr)
         print('aftersleep')
 
 def task_checkhospital():
     con = get_redis_connection('default')
     beforecheck(sys._getframe().f_code.co_name)
     while 1:
-        did=int(con.spop('hospital_list'))
-        checkhospital(did)
-        time.sleep(0.01)
+        arr=con.zrange('hospital_list',0,100)
+        for did in arr:
+            checkhospital(did.decode())
+        #time.sleep(0.01)
+        con.zrem('hospital_list', *arr)
         print('aftersleep')
 from grab.checkuser import checkuserflow,checkuserfans
 def task_checkdoctor():
     con = get_redis_connection('default')
     beforecheck(sys._getframe().f_code.co_name)
     while 1:
-        did=int(con.spop('doctor_list'))
-        checkdoctor(did)
-        time.sleep(0.01)
+        arr=con.zrange('doctor_list',0,100)
+        for did in arr:
+            checkdoctor(did.decode())
+        #time.sleep(0.01)
+        con.zrem('doctor_list', *arr)
         print('aftersleep')
-
+task_checkproduct()
 
 #164361819

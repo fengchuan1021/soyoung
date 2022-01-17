@@ -52,9 +52,9 @@ def grab():
             if 'feed_list' in ret and ret['feed_list']:
                 for obj in ret['feed_list']:
                     diaryid=obj['data']['post_id']
-                    con.sadd('diary_list',diaryid)
+                    con.zadd('diary_list',{diaryid:int(time.time())})
                     uid=obj['data']['uid']
-                    con.sadd('user_list',uid)
+                    con.zadd('user_list',{uid:int(time.time())})
 
             else:
                 break

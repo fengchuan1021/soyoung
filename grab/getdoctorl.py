@@ -30,11 +30,12 @@ def check():
 
 def grab():
     check()
-    session=createsession()
+
     page=0
     now=str(datetime.datetime.now())
     while 1:
-        time.sleep(1)
+        #time.sleep(1)
+        session = createsession()
         page += 1
         url=f'https://m.soyoung.com/calendardoctor/getdoc?index={page}'#&calendar_type=3&menu1_id=undefined&select_id=undefined
         print(url)

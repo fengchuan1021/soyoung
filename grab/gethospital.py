@@ -30,12 +30,13 @@ def check():
 from django_redis import get_redis_connection
 def grab():
     check()
-    session=createsession()
+
     page=0
     now=str(datetime.datetime.now())
     con = get_redis_connection('default')
     while 1:
-        time.sleep(1)
+        #time.sleep(1)
+        session = createsession()
         page += 1
         url=f'https://m.soyoung.com/hospitalsearch?ajax=1&index={page}'#&calendar_type=3&menu1_id=undefined&select_id=undefined
         print(url)
@@ -55,7 +56,7 @@ def grab():
                     model.HospitalType=obj['type']
                     model.CrawlTime=now
                     model.save()
-                    con.sadd('hospital_list',obj['hospital_id'])
+                    con.zadd('hospital_list',{obj['hospital_id']:int(time.time())})
 
 
 
