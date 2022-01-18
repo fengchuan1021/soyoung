@@ -7,7 +7,7 @@ class Hospital(models.Model):
 
     HospitalName=models.CharField(max_length=64)
 
-    ServiceNum=models.IntegerField(default=0)
+    ServiceNum=models.IntegerField(default=0,db_index=True)
     DoctorNum=models.IntegerField(default=0)
     HospitalAddress=models.CharField(max_length=512,default='')
     HospitalType=models.CharField(default='',blank=True,null=True,max_length=32)

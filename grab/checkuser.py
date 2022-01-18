@@ -184,9 +184,11 @@ def checkdiary(pid):
         ret=session.get(f'https://www.soyoung.com/p{pid}')
 
         b = js2py.eval_js(re.findall(r'(window\.__NUXT__.*?)</script>', ret.text)[0])
-
-        model.ReviewContent=b.fetch["data-v-56804bd0:0"].res.content[0].raw_text
-
+        try:
+            #model.ReviewContent=b.fetch["data-v-56804bd0:0"].res.content[0].raw_text
+            model.ReviewContent='\n'.join([tmp['raw_text'] for tmp in b.fetch["data-v-56804bd0:0"].res.content if 'raw_text' in tmp])
+        except Exception as e:
+            print(e)
         model.ReviewReplyNum=b.fetch["data-v-56804bd0:0"].stat.reply_cnt
         model.ReviewFollowNum=b.fetch["data-v-56804bd0:0"].stat.collection_cnt
         model.ReviewLikeNum = b.fetch["data-v-56804bd0:0"].stat.real_favorite_cnt
@@ -576,7 +578,7 @@ def checkdoctor(did):
 
         except Exception as e:
             print(e)
-            pass
+
         model.DoctorGender=b.fetch["data-v-625304e2:0"].info.doctor.gender
         model.DoctorRating=b.fetch["data-v-625304e2:0"].info.doctor_card.five_stars_score.satisfy
         model.DGCNum=b.fetch["data-v-625304e2:0"].info.statistics.official_cnt
@@ -595,7 +597,7 @@ def checkdoctor(did):
                     model.VideoPrice=tmp['price_str']
                 elif tmp['type']==3:
                     model.VoiceService=True
-                    model.VideoPrice=tmp['price_str']
+                    model.VoicePrice=tmp['price_str']
                 elif tmp['type']==1:
                     model.TextService=True
                     model.TextPrice=tmp['price_str']
