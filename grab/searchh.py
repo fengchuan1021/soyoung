@@ -22,8 +22,8 @@ def check():
             pid=int(f.read())
             try:
                 p=psutil.Process(pid)
-                if os.path.split(p.cmdline()[1])[-1]==os.path.split(__file__)[-1]:
-                    exit(0)
+
+                exit(0)
             except Exception as e:
                 print(e)
     with open(os.path.join(settings.BASE_DIR,'run',pidfile),'w') as f:

@@ -186,22 +186,24 @@ def checkdiary(pid):
         b = js2py.eval_js(re.findall(r'(window\.__NUXT__.*?)</script>', ret.text)[0])
         try:
             #model.ReviewContent=b.fetch["data-v-56804bd0:0"].res.content[0].raw_text
-            model.ReviewContent='\n'.join([tmp['raw_text'] for tmp in b.fetch["data-v-56804bd0:0"].res.content if 'raw_text' in tmp])
+            key=re.findall(r'class="main".*data-fetch-key="(.*?)" class="post-page"',ret.text)[0]
+            print(f'{key=}')
+            model.ReviewContent='\n'.join([tmp['raw_text'] for tmp in b.fetch[key].res.content if 'raw_text' in tmp])
         except Exception as e:
             print(e)
-        model.ReviewReplyNum=b.fetch["data-v-56804bd0:0"].stat.reply_cnt
-        model.ReviewFollowNum=b.fetch["data-v-56804bd0:0"].stat.collection_cnt
-        model.ReviewLikeNum = b.fetch["data-v-56804bd0:0"].stat.real_favorite_cnt
+        model.ReviewReplyNum=b.fetch[key].stat.comment_cnt
+        model.ReviewFollowNum=b.fetch[key].stat.collection_cnt
+        model.ReviewLikeNum = b.fetch[key].stat.real_favorite_cnt
         model.RCrawlDate=now
 
 
         try:
-            if int(b.fetch["data-v-56804bd0:0"].post_user.certified_type)==3:
-                model.DoctorID=b.fetch["data-v-56804bd0:0"].post_user.certified_id
+            if int(b.fetch[key].post_user.certified_type)==3:
+                model.DoctorID=b.fetch[key].post_user.certified_id
         except Exception as e:
             pass
-        if 'extension' in b.fetch["data-v-56804bd0:0"] and  b.fetch["data-v-56804bd0:0"].extension and b.fetch["data-v-56804bd0:0"].extension.display_label_list:
-            for item in b.fetch["data-v-56804bd0:0"].extension.display_label_list:
+        if 'extension' in b.fetch[key] and  b.fetch[key].extension and b.fetch[key].extension.display_label_list:
+            for item in b.fetch[key].extension.display_label_list:
                 if item['name']=='通过新氧消费':
                     model.IsCustom1Review=True
                 elif item['name']=='上传消费凭证':
@@ -209,7 +211,7 @@ def checkdiary(pid):
                 elif item['name'] == '体验官日记':
                     model.IsEOReview = True
                     try:
-                        Reviewer.objects.filter(ReviewerID=b.fetch["data-v-56804bd0:0"].post_user.uid).update(IsEOuser=True)
+                        Reviewer.objects.filter(ReviewerID=b.fetch[key].post_user.uid).update(IsEOuser=True)
                     except Exception as e:
                         pass
                 elif item['name']=='案例':
@@ -217,41 +219,41 @@ def checkdiary(pid):
 
 
         try:
-            model.IsVideoReview =False if 'video' not in b.fetch["data-v-56804bd0:0"].media else True
-            model.IsImageReview=False if 'content_image_list' not in b.fetch["data-v-56804bd0:0"].media else True
+            model.IsVideoReview =False if 'video' not in b.fetch[key].media else True
+            model.IsImageReview=False if 'content_image_list' not in b.fetch[key].media else True
         except Exception as e:
             pass
         #model.ReviewDate=re.findall(r'create_date="(.*?)"',ret.text)[0]
-        model.ReviewDate=b.fetch["data-v-56804bd0:0"].base.create_date
-        model.ReviewViews=b.fetch["data-v-56804bd0:0"].stat.view_cnt
+        model.ReviewDate=b.fetch[key].base.create_date
+        model.ReviewViews=b.fetch[key].stat.view_cnt
 
-        if 'star_score' in b.fetch["data-v-56804bd0:0"] and b.fetch["data-v-56804bd0:0"].star_score:
-            model.ReviewERating=b.fetch["data-v-56804bd0:0"].star_score.environment
-            model.ReviewSRating =b.fetch["data-v-56804bd0:0"].star_score.service
-            model.ReviewTRating=b.fetch["data-v-56804bd0:0"].star_score.effect
-            model.ReviewPRating=b.fetch["data-v-56804bd0:0"].star_score.specialty
-            model.ReviewRating = b.fetch["data-v-56804bd0:0"].star_score.satisfy  # 日记评分
+        if 'star_score' in b.fetch[key] and b.fetch[key].star_score:
+            model.ReviewERating=b.fetch[key].star_score.environment
+            model.ReviewSRating =b.fetch[key].star_score.service
+            model.ReviewTRating=b.fetch[key].star_score.effect
+            model.ReviewPRating=b.fetch[key].star_score.specialty
+            model.ReviewRating = b.fetch[key].star_score.satisfy  # 日记评分
 
-        model.ReviewTextLen=b.fetch["data-v-56804bd0:0"].stat.text_cnt
-        model.ReviewImageNum=b.fetch["data-v-56804bd0:0"].stat.image_cnt
+        model.ReviewTextLen=b.fetch[key].stat.text_cnt
+        model.ReviewImageNum=b.fetch[key].stat.image_cnt
         try:
-            model.ReviewImage='' if 'content_image_list' not in b.fetch["data-v-56804bd0:0"].media else '#'.join([ item['url'] for item in b.fetch["data-v-56804bd0:0"].media.content_image_list])
-            model.ReviewVideo='' if 'video' not in b.fetch["data-v-56804bd0:0"].media else b.fetch["data-v-56804bd0:0"].media.video.url
+            model.ReviewImage='' if 'content_image_list' not in b.fetch[key].media else '#'.join([ item['url'] for item in b.fetch[key].media.content_image_list])
+            model.ReviewVideo='' if 'video' not in b.fetch[key].media else b.fetch[key].media.video.url
         except Exception as e:
             pass
 
 
-        model.ReviewAddText='' if ('append' not in b.fetch["data-v-56804bd0:0"] or not b.fetch["data-v-56804bd0:0"].append) else '#'.join([item.content[0].raw_text for item in b.fetch["data-v-56804bd0:0"].append])
+        model.ReviewAddText='' if ('append' not in b.fetch[key] or not b.fetch[key].append) else '#'.join([item.content[0].raw_text for item in b.fetch[key].append])
 
-        model.FollowReviewNum=b.fetch["data-v-56804bd0:0"].res.collect_diary_list.diary_cnt if 'collect_diary_list' in  b.fetch["data-v-56804bd0:0"].res else 0
-        model.ReviewerID_id=b.fetch["data-v-56804bd0:0"].post_user.uid
+        model.FollowReviewNum=b.fetch[key].res.collect_diary_list.diary_cnt if 'collect_diary_list' in  b.fetch[key].res else 0
+        model.ReviewerID_id=b.fetch[key].post_user.uid
         con = get_redis_connection('default')
 
         try:
-            if 'collect_diary_list' in b.fetch["data-v-56804bd0:0"].res:
-                model.CollectionID=b.fetch["data-v-56804bd0:0"].res.collect_diary_list.collection_id
+            if 'collect_diary_list' in b.fetch[key].res:
+                model.CollectionID=b.fetch[key].res.collect_diary_list.collection_id
 
-                for item in b.fetch["data-v-56804bd0:0"].res.collect_diary_list.list:
+                for item in b.fetch[key].res.collect_diary_list.list:
                     try:
                         con.zadd('diary_list',{item['post_id']:int(time.time())})
                     except Exception as e:
@@ -260,29 +262,29 @@ def checkdiary(pid):
         except Exception as e:
             pass
         model.ReviewID=pid
-        if 'doctor_card' in b.fetch["data-v-56804bd0:0"].attribute:
-            model.DoctorID_id=b.fetch["data-v-56804bd0:0"].attribute.doctor_card[0].doctor_id
-            model.DoctorName=b.fetch["data-v-56804bd0:0"].attribute.doctor_card[0].name_cn
+        if 'doctor_card' in b.fetch[key].attribute:
+            model.DoctorID_id=b.fetch[key].attribute.doctor_card[0].doctor_id
+            model.DoctorName=b.fetch[key].attribute.doctor_card[0].name_cn
             con.zadd('doctor_list',{model.DoctorID_id:int(time.time())})
-        if 'hospital_card' in b.fetch["data-v-56804bd0:0"].attribute:
-            model.HospitalID_id=b.fetch["data-v-56804bd0:0"].attribute.hospital_card[0].hospital_id
-            model.HospitalName=b.fetch["data-v-56804bd0:0"].attribute.hospital_card[0].name_cn
+        if 'hospital_card' in b.fetch[key].attribute:
+            model.HospitalID_id=b.fetch[key].attribute.hospital_card[0].hospital_id
+            model.HospitalName=b.fetch[key].attribute.hospital_card[0].name_cn
             con.zadd('hospital_list',{model.HospitalID_id:int(time.time())})
 
-        if 'product_card' in b.fetch["data-v-56804bd0:0"].attribute:
-            model.ProductID_id=b.fetch["data-v-56804bd0:0"].attribute.product_card[0].product.pid
-            model.ProductName=b.fetch["data-v-56804bd0:0"].attribute.product_card[0].product.title
+        if 'product_card' in b.fetch[key].attribute:
+            model.ProductID_id=b.fetch[key].attribute.product_card[0].product.pid
+            model.ProductName=b.fetch[key].attribute.product_card[0].product.title
             con.zadd('product_list',{model.ProductID_id:int(time.time())})
-        model.IsHQReview=True if b.fetch["data-v-56804bd0:0"].res.audit.quality_type and int(b.fetch["data-v-56804bd0:0"].res.audit.quality_type)==2 else False #优质评价
+        model.IsHQReview=True if b.fetch[key].res.audit.quality_type and int(b.fetch[key].res.audit.quality_type)==2 else False #优质评价
 
         # try:
-        #     setusercollect_cnt(model.ReviewerID_id,b.fetch["data-v-56804bd0:0"].post_user.favourite_collect_cnt)
+        #     setusercollect_cnt(model.ReviewerID_id,b.fetch[key].post_user.favourite_collect_cnt)
         # except Exception as e:
         #     print(e)
         #     pass
 
         try:
-            for item in b.fetch["data-v-56804bd0:0"].recommend:
+            for item in b.fetch[key].recommend:
                 if 'type' in item and item['type']==35:
                     con.zadd('diary_list',{item['data']['post_id']:int(time.time())})
                     con.zadd('user_list',{item['data']['uid']:int(time.time())})
@@ -561,36 +563,39 @@ def checkdoctor(did):
         ret=session.get(url)
         #session.post('https://m.soyoung.com/doctor/infov3tabproduct')
         b=js2py.eval_js(re.findall(r'(window\.__NUXT__.*?)</script>',ret.text)[0])
-
+        key=re.findall(r'class="main".*data-fetch-key="(.*?)" class="doctor-home',ret.text)[0]
         #soup=BeautifulSoup(ret.text)
         model=Doctor.objects.filter(DoctorID=did).first()
         if not model:
             model=Doctor()
             model.DoctorID=did
         model.DCrawlDate=now
-        model.DoctorName=b.fetch["data-v-625304e2:0"].info.doctor.name_cn
-        model.DoctorCity=b.fetch["data-v-625304e2:0"].info.doctor.hospital_city
-        model.ProfessionalTitle=b.fetch["data-v-625304e2:0"].info.doctor.extend.positionName
-        model.WorkYear=b.fetch["data-v-625304e2:0"].info.doctor.career
+        model.DoctorName=b.fetch[key].info.doctor.name_cn
+        model.DoctorCity=b.fetch[key].info.doctor.hospital_city
+        model.ProfessionalTitle=b.fetch[key].info.doctor.extend.positionName
+        model.WorkYear=b.fetch[key].info.doctor.career
         try:
-            model.HospitalID_id=b.fetch["data-v-625304e2:0"].info.doctor.main_hospital[0].hospital_id
-            model.HospitalName=b.fetch["data-v-625304e2:0"].info.doctor.main_hospital[0].hospital_name
+            model.HospitalID_id=b.fetch[key].info.doctor.main_hospital[0].hospital_id
+            model.HospitalName=b.fetch[key].info.doctor.main_hospital[0].hospital_name
 
         except Exception as e:
             print(e)
 
-        model.DoctorGender=b.fetch["data-v-625304e2:0"].info.doctor.gender
-        model.DoctorRating=b.fetch["data-v-625304e2:0"].info.doctor_card.five_stars_score.satisfy
-        model.DGCNum=b.fetch["data-v-625304e2:0"].info.statistics.official_cnt
-        model.ExpertArea='#'.join([item['name'] for item in b.fetch["data-v-625304e2:0"].info.doctor.extend.expert_all])
-        model.DoctorBio=b.fetch["data-v-625304e2:0"].info.doctor.intro
-        model.DoctorSRating=b.fetch["data-v-625304e2:0"].info.doctor_card.five_stars_score.service
-        model.DoctorPRating=b.fetch["data-v-625304e2:0"].info.doctor_card.five_stars_score.specialty
-        model.DoctorTRating=b.fetch["data-v-625304e2:0"].info.doctor_card.five_stars_score.effect
-        model.DoctorReviewNum=b.fetch["data-v-625304e2:0"].info.statistics.diary_cnt
-        model.DoctorFollower=b.fetch["data-v-625304e2:0"].info.statistics.fans_cnt
-        model.DoctorPosrate=b.fetch["data-v-625304e2:0"].info.koubeiAndDiary.avg_info.high_percent
-        for tmp in b.fetch["data-v-625304e2:0"].info.face_consultation_card.list:
+        model.DoctorGender=b.fetch[key].info.doctor.gender
+        model.DoctorRating=b.fetch[key].info.doctor_card.five_stars_score.satisfy
+        try:
+            model.DGCNum=int(b.fetch[key].info.statistics.official_cnt)
+        except Exception as e:
+            pass
+        model.ExpertArea='#'.join([item['name'] for item in b.fetch[key].info.doctor.extend.expert_all])
+        model.DoctorBio=b.fetch[key].info.doctor.intro
+        model.DoctorSRating=b.fetch[key].info.doctor_card.five_stars_score.service
+        model.DoctorPRating=b.fetch[key].info.doctor_card.five_stars_score.specialty
+        model.DoctorTRating=b.fetch[key].info.doctor_card.five_stars_score.effect
+        model.DoctorReviewNum=b.fetch[key].info.statistics.diary_cnt
+        model.DoctorFollower=b.fetch[key].info.statistics.fans_cnt
+        model.DoctorPosrate=b.fetch[key].info.koubeiAndDiary.avg_info.high_percent
+        for tmp in b.fetch[key].info.face_consultation_card.list:
             if 'allow_yn' in tmp and tmp['allow_yn']:
                 if tmp['type']==2:
                     model.VideoService=True
@@ -602,7 +607,7 @@ def checkdoctor(did):
                     model.TextService=True
                     model.TextPrice=tmp['price_str']
 
-        model.DoctorConsultation=b.fetch["data-v-625304e2:0"].info.statistics.patient_cnt
+        model.DoctorConsultation=b.fetch[key].info.statistics.patient_cnt
         model.save()
         checkdoctordiary(did)
         checkdoctorxiangmu(did)
@@ -616,6 +621,7 @@ def checkuser(uid):
     if int(uid)==0:
         return 0
     if 1 and cache.get(f'u:{uid}'):
+        print('has get!')
         return 0
     cache.set(f'u:{uid}',1,timeout=3600*24*7)
     page = 0
@@ -635,10 +641,11 @@ def checkuser(uid):
             model.ReviewerLikes2==tmp[0] if (tmp:=re.findall(r'喜欢(\d+)',ret.text)) else 0
             model.ReviewerLikes=soup.select('div.zan span.em')[0].string
             model.ReviewerPosts=tmp[0] if (tmp:=re.findall(r'动态(\d+)',ret.text)) else 0
-
+            model.RCrawlDate=datetime.datetime.now()
         except Exception as e:
             print(e)
     except Exception as e:
+        print(e,644)
         pass
     while 1:
         page += 1
@@ -676,18 +683,18 @@ def checkuser(uid):
                 con.zadd('diary_list',{item['post_id']:int(time.time())})
 
         except Exception as e:
-            print(e)
+            print(e,681)
             break
     try:
 
         checkuserfans(uid)
     except Exception as e:
-        print(e)
+        print(e,687)
     try:
         checkuserflow(uid)
 
     except Exception as e:
-        print(e)
+        print(e,692)
     return 1
 def checkuserfans(uid):
     if int(uid)==0:
@@ -761,3 +768,5 @@ def checkuserflow(uid):
             print(e)
             break
 
+if __name__=='__main__':
+    checkdoctor('54090')

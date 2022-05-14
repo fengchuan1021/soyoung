@@ -3,6 +3,7 @@ import django
 import os
 import pathlib
 import js2py
+import threading
 from django_redis import get_redis_connection
 if __name__ == "__main__":
     basedir = str(pathlib.Path(__file__).resolve().parent.parent)
@@ -28,8 +29,7 @@ def beforecheck(name):
             pid = int(f.read())
             try:
                 p = psutil.Process(pid)
-                if os.path.split(p.cmdline()[1])[-1]==os.path.split(__file__)[-1]:
-                    exit(0)
+                exit(0)
             except Exception as e:
                 print(e)
     with open(os.path.join(settings.BASE_DIR, 'run', pidfile), 'w') as f:
@@ -41,9 +41,12 @@ def task_checkdiary():
     con = get_redis_connection('default')
     beforecheck('task_checkdiary')
     while 1:
-        arr=con.zrange('diary_list',0,100)
-        for did in arr:
-            checkdiary(did.decode())
+        arr=con.zrange('diary_list',0,3)
+        ath=[threading.Thread(target=checkdiary,args=(did.decode(),)) for did in arr]
+        [th.start() for th in ath]
+        [th.join() for th in ath]
+        # for did in arr:
+        #     checkdiary(did.decode())
         #time.sleep(0.01)
         con.zrem('diary_list', *arr)
         print('aftersleep')
@@ -53,20 +56,27 @@ def task_checkuser():
     con = get_redis_connection('default')
     beforecheck(sys._getframe().f_code.co_name)
     while 1:
-        arr=con.zrange('user_list',0,100)
-        for did in arr:
-            tmp=checkuser(did.decode())
+        arr=con.zrange('user_list',0,3)
+        print('arrL',arr)
+        ath=[threading.Thread(target=checkuser,args=(did.decode(),)) for did in arr]
+        [th.start() for th in ath]
+        [th.join() for th in ath]
+        # for did in arr:
+        #     tmp=checkuser(did.decode())
         #time.sleep(0.01)
-        con.zrem('usesr_list',*arr)
+        con.zrem('user_list',*arr)
         print('aftersleep')
 
 def task_checkproduct():
     con = get_redis_connection('default')
     beforecheck(sys._getframe().f_code.co_name)
     while 1:
-        arr=con.zrange('product_list',0,100)
-        for did in arr:
-            tmp=checkproduct(did.decode())
+        arr=con.zrange('product_list',0,3)
+        ath=[threading.Thread(target=checkproduct,args=(did.decode(),)) for did in arr]
+        [th.start() for th in ath]
+        [th.join() for th in ath]
+        # for did in arr:
+        #     tmp=checkproduct(did.decode())
         #time.sleep(0.01)
         con.zrem('product_list', *arr)
         print('aftersleep')
@@ -75,9 +85,12 @@ def task_checkhospital():
     con = get_redis_connection('default')
     beforecheck(sys._getframe().f_code.co_name)
     while 1:
-        arr=con.zrange('hospital_list',0,100)
-        for did in arr:
-            checkhospital(did.decode())
+        arr=con.zrange('hospital_list',0,3)
+        ath=[threading.Thread(target=checkhospital,args=(did.decode(),)) for did in arr]
+        [th.start() for th in ath]
+        [th.join() for th in ath]
+        # for did in arr:
+        #     checkhospital(did.decode())
         #time.sleep(0.01)
         con.zrem('hospital_list', *arr)
         print('aftersleep')
@@ -86,12 +99,17 @@ def task_checkdoctor():
     con = get_redis_connection('default')
     beforecheck(sys._getframe().f_code.co_name)
     while 1:
-        arr=con.zrange('doctor_list',0,100)
-        for did in arr:
-            checkdoctor(did.decode())
+        arr=con.zrange('doctor_list',0,3)
+        ath=[threading.Thread(target=checkdoctor,args=(did.decode(),)) for did in arr]
+        [th.start() for th in ath]
+        [th.join() for th in ath]
+        # for did in arr:
+        #     checkdoctor(did.decode())
         #time.sleep(0.01)
         con.zrem('doctor_list', *arr)
         print('aftersleep')
 
 
 #164361819
+if __name__=='__main__':
+    task_checkuser()

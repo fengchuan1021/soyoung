@@ -81,11 +81,11 @@ WSGI_APPLICATION = 'soyoung.wsgi.application'
 DATABASES = {
     'default': {
         'ENGINE': 'django.db.backends.mysql',
-        'NAME': os.getenv('DBNAME'),
-        'HOST': os.getenv('DBURL'),
-        'PORT': int(os.getenv('DBPORT')),
-        'USER':os.getenv('DBUSER'),
-        'PASSWORD': os.getenv('DBPWD'),
+        'NAME': 'soyoung',
+        'HOST': 'rm-bp1t45wh9dtp61fj54o.mysql.rds.aliyuncs.com',
+        'PORT': '3306',
+        'USER':'root',
+        'PASSWORD': '@root123',
         'CONN_MAX_AGE': 1800,
         'OPTIONS': {'charset':'utf8mb4',
                     "init_command": "SET foreign_key_checks = 0;",
@@ -153,11 +153,11 @@ CRONJOBS = [
 CACHES = {
     "default": {
         "BACKEND": "django_redis.cache.RedisCache",
-        "LOCATION": os.getenv('REDISURL'),
+        "LOCATION": 'redis://myredis:6379/0' if os.name!='nt' else 'redis://127.0.0.1:6379/0',
         "OPTIONS": {
             "CLIENT_CLASS": "django_redis.client.DefaultClient",
             "CONNECTION_POOL_KWARGS": {"max_connections": 100},
-            "PASSWORD": os.getenv('REDISPASSWORD'),
+            "PASSWORD": '',
         }
     }
 }

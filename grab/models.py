@@ -61,6 +61,7 @@ class Product(models.Model):
     PAverageScore=models.FloatField(default=0)
 class Reviewer(models.Model):
     ReviewerID=models.BigIntegerField(primary_key=True)
+    RCrawlDate=models.DateTimeField(blank=True,null=True)
     ReviewerName=models.CharField(max_length=32)
     ReviewerAge=models.IntegerField(blank=True,null=True)
     ReviewerGender=models.CharField(blank=True,null=True,max_length=1)

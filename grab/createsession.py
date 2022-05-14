@@ -6,104 +6,29 @@ useragent='''Mozilla/5.0 (iPhone; CPU iPhone OS 13_2_3 like Mac OS X) AppleWebKi
 import os
 import time,re
 from django.core.cache import cache
-dnsips='''125.44.162.62
+import random
+import re
 
-中国 江苏 苏州 移动36.156.131.38
-
-中国 陕西 安康 联通113.201.105.2
-
-中国 河南 南阳 联通125.44.162.61
-
-
-中国 安徽 合肥 联通211.91.76.19
-
-中国 四川 成都 电信118.121.192.79
-
-中国 广东 惠州 移动183.232.112.71
-
-中国 陕西 安康 联通113.201.105.3
-
-中国 山东 济宁 移动120.220.20.105
-
-中国 广东 惠州 移动183.232.112.84
-
-中国 湖北 仙桃 电信61.184.241.80
-
-中国 湖北 仙桃 电信61.184.241.82
-
-中国 安徽 合肥 联通211.91.76.15
-
-中国 湖北 仙桃 电信61.184.241.81
-
-中国 湖北 仙桃 电信61.184.241.77
-
-中国 上海 宝山 电信218.78.243.231
-
-中国 四川 成都 电信118.121.192.74
-
-中国 江苏 苏州 移动36.156.131.55
-
-中国 陕西 安康 联通113.201.105.7
-
-中国 湖北 仙桃 电信61.184.241.68
-
-中国 河南 南阳 联通125.44.162.59
-
-中国 山东 济宁 移动120.220.20.116
-
-中国 上海 宝山 电信218.78.243.232
-
-中国 山东 济宁 移动120.220.20.100
-
-中国 陕西 安康 联通113.201.105.6
-
-中国 四川 成都 电信118.121.192.78
-
-中国 安徽 合肥 联通211.91.76.4
-
-中国 上海 宝山 电信218.78.243.226
-
-中国 江苏 苏州 移动36.156.131.46
-
-中国 湖北 仙桃 电信61.184.241.71
-
-中国 湖北 仙桃 电信61.184.241.75
-
-中国 广东 惠州 移动183.232.112.76'''
-dnsips=re.findall(r'([0-9\.]+)',dnsips)
 class mysession:
+   proxyips=[]
    def __init__(self):
       self.session = requests.session()
 
-      if proxyip:=cache.get('proxyip'):
-         self.session.proxies=proxyip
       self.session.headers.update({'user-agent': useragent})
-      pass
+      if self.__class__.proxyips:
+         self.session.proxies=random.choice(self.proxyips)
    def changeip(self):
       try:
-         print('chagnip')
-         apistr=os.getenv('IPAPI')
-         print(apistr)
-         if cache.get('proxyflag'):
-            time.sleep(1)
-            print('not realchange')
-            return 0
-         cache.set('proxyflag',1,timeout=180)
-         ret=requests.get(apistr).json()
-         print(ret)
-         print('proxyip:',ret['obj'][0])
-         port=ret['obj'][0]['port']
-         ip=ret['obj'][0]['ip']
-         proxies={
-            'http':f'{ip}:{port}',
-            'https':f'{ip}:{port}'
-            }
-         cache.set('proxyip',proxies,timeout=240)
-         #print(self.)
+
+         ret=requests.get('http://proxy.httpdaili.com/apinew.asp?ddbh=2535043392946477733')
+         tmparr=re.findall(r'(\d+\.\d+\.\d+\.\d+:\d+)',ret.text)
+         self.__class__.proxyips=[{'http':proxy,'https':proxy} for proxy in tmparr]
+         proxy=random.choice(self.__class__.proxyips)
+         print(proxy)
          self.session.cookies.clear()
-         self.session.proxies=proxies
-         print(self.session.proxies)
+         self.session.proxies=proxy
       except Exception as e:
+         self.session.proxies = None
          print(e)
    @property
    def headers(self):
@@ -118,11 +43,12 @@ class mysession:
                # myarg=list(args)
                # myarg[0]=myarg[0].replace(tarhost,random.choice(dnsips)).replace('https','http')
 
-               ret=self.session.post(*myarg,**kwargs)
+               ret=self.session.post(*args,**kwargs)
             except Exception as e:
                print(e)
                self.session.proxies=None
-               time.sleep(2)
+               self.changeip()
+               time.sleep(0.1)
                continue
             if 'ERROR: ACCESS DENIED' in ret.text or 'verification.soyoung.com' in ret.text:
                pass
@@ -139,21 +65,13 @@ class mysession:
       try:
          while 1:
             try:
-               if 0 and '?' not in args[0]:
 
-                  tarhost=re.findall(r'https?://(.*?)/',args[0])[0]
-                  self.session.headers.update({'Host':tarhost})
-                  myarg=list(args)
-                  myarg[0]=myarg[0].replace(tarhost,random.choice(dnsips)).replace('https','http')
+               ret=self.session.get(*args,**kwargs)
 
-                  print(tarhost,myarg[0])
-                  ret=self.session.get(*myarg,**kwargs)
-               else:
-                  ret = self.session.get(*args, **kwargs)
 
             except Exception as e:
                print(e)
-               self.session.proxies=None
+               self.changeip()
                time.sleep(0.01)
                continue
             if 'ERROR: ACCESS DENIED' in ret.text  or 'verification.soyoung.com' in ret.text:
